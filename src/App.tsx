@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { createClient } from '@supabase/supabase-js';
 import {
   ShoppingBag,
   Search,
@@ -6,14 +7,35 @@ import {
   Plus,
   Minus,
   ArrowRight,
-  Check,
   Phone,
   ShieldCheck,
   Truck,
   RefreshCw,
-  ChevronDown,
-  Sparkles,
+  Lock,
+  Trash2,
+  Upload,
+  LogOut,
+  Image as ImageIcon,
 } from 'lucide-react';
+
+// ============================================================================
+// PENGATURAN TOKO & SUPABASE (EDIT 4 BARIS INI)
+// ============================================================================
+const STORE_NAME_FIRST = 'WS';
+const STORE_NAME_SECOND = 'STORE';
+const WHATSAPP_NUMBER = '6281234567890'; // Ganti nomor WA lo (diawali 62)
+const ADMIN_PASSWORD = 'ADMINWS312'; // Ganti password rahasia halaman admin lo
+
+const SUPABASE_URL = 'https://pymfcglqwejqfixmhnlf.supabase.co';
+const SUPABASE_ANON_KEY = 'TEMPEL_PUBLISHABLE_KEY_SUPABASE_LO_DISINI';
+// ============================================================================
+
+const isSupabaseConfigured =
+  SUPABASE_URL.startsWith('http') && SUPABASE_ANON_KEY.length > 20;
+
+const supabase = isSupabaseConfigured
+  ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+  : null;
 
 interface Product {
   id: string;
@@ -21,383 +43,652 @@ interface Product {
   category: string;
   categoryLabel: string;
   price: number;
-  originalPrice: number | null;
-  tag: string | null;
-  sizes: string[];
+  originalPrice?: number;
+  tag?: string;
   image: string;
   description: string;
 }
 
-interface CartItem {
-  cartItemId: string;
-  productId: string;
-  name: string;
-  price: number;
+interface CartItem extends Product {
   size: string;
-  image: string;
   quantity: number;
 }
 
-const PRODUCTS: Product[] = [
+const CATEGORY_OPTIONS = [
+  { key: 'tops', label: 'Kaos & Atasan' },
+  { key: 'outerwear', label: 'Outerwear' },
+  { key: 'pants', label: 'Celana' },
+  { key: 'accessories', label: 'Aksesori' },
+];
+
+const FILTER_CATEGORIES = [
+  { key: 'all', label: 'Semua Produk' },
+  ...CATEGORY_OPTIONS,
+];
+
+const SIZES = ['S', 'M', 'L', 'XL'];
+
+const FALLBACK_PRODUCTS: Product[] = [
   {
-    id: 'k-01',
-    name: 'KALA Heavyweight',
+    id: 'demo-1',
+    name: 'Heavyweight Boxy Tee',
     category: 'tops',
     categoryLabel: 'Kaos & Atasan',
     price: 189000,
     originalPrice: 229000,
     tag: 'BESTSELLER',
-    sizes: ['S', 'M', 'L', 'XL'],
     image:
-      'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=800&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800&auto=format&fit=crop&q=80',
     description:
       'Cotton Combed 16s Heavyweight 235 GSM. Potongan boxy modern, kerah rib tebal anti melar.',
   },
-  {
-    id: 'k-02',
-    name: 'Raw Edge Oversized Hoodie',
-    category: 'outerwear',
-    categoryLabel: 'Outerwear',
-    price: 389000,
-    originalPrice: 449000,
-    tag: 'NEW DROP',
-    sizes: ['M', 'L', 'XL'],
-    image:
-      'https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=800&auto=format&fit=crop&q=80',
-    description:
-      'Cotton Fleece 330 GSM tebal bertekstur. Detail unfinished hem di bagian manset dan saku kangaroo.',
-  },
-  {
-    id: 'k-03',
-    name: 'Pleated Parachute Relaxed Pants',
-    category: 'pants',
-    categoryLabel: 'Celana',
-    price: 279000,
-    originalPrice: 319000,
-    tag: 'TRENDING',
-    sizes: ['S', 'M', 'L', 'XL'],
-    image:
-      'https://images.unsplash.com/photo-1517445312882-bc9910d016b7?w=800&auto=format&fit=crop&q=80',
-    description:
-      'Bahan taslan semi-matte water-repellent. Tali serut adjustable di pinggang dan pergelangan kaki.',
-  },
-  {
-    id: 'k-04',
-    name: 'Vintage Wash Daily Shirt',
-    category: 'tops',
-    categoryLabel: 'Kaos & Atasan',
-    price: 249000,
-    originalPrice: 289000,
-    tag: null,
-    sizes: ['M', 'L', 'XL'],
-    image:
-      'https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=800&auto=format&fit=crop&q=80',
-    description:
-      'Katun linen washed adem berserat alami. Potongan relax fit santai untuk aktivitas seharian.',
-  },
-  {
-    id: 'k-05',
-    name: 'Techwear Utility Crossbody Bag',
-    category: 'accessories',
-    categoryLabel: 'Aksesoris',
-    price: 169000,
-    originalPrice: 199000,
-    tag: 'LIMITED',
-    sizes: ['All Size'],
-    image:
-      'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=800&auto=format&fit=crop&q=80',
-    description:
-      'Cordura 600D tahan cipratan air. Kompartemen ganda dengan strap YKK quick-release buckle.',
-  },
-  {
-    id: 'k-06',
-    name: 'Carpenter Straight Cargo Denim',
-    category: 'pants',
-    categoryLabel: 'Celana',
-    price: 369000,
-    originalPrice: 429000,
-    tag: null,
-    sizes: ['S', 'M', 'L', 'XL'],
-    image:
-      'https://images.unsplash.com/photo-1542272604-780c96856592?w=800&auto=format&fit=crop&q=80',
-    description:
-      'Denim non-stretch 13.5 oz warna faded indigo. Dilengkapi aksen hammer loop dan saku perkakas khas workwear.',
-  },
 ];
 
-const CATEGORIES = [
-  { key: 'all', label: 'Semua Produk' },
-  { key: 'tops', label: 'Kaos & Atasan' },
-  { key: 'outerwear', label: 'Outerwear' },
-  { key: 'pants', label: 'Celana' },
-  { key: 'accessories', label: 'Aksesoris' },
-];
+const formatRupiah = (amount: number) =>
+  new Intl.NumberFormat('id-ID', {
+    style: 'currency',
+    currency: 'IDR',
+    maximumFractionDigits: 0,
+  }).format(amount);
 
 export default function App() {
+  const [isAdminRoute, setIsAdminRoute] = useState<boolean>(
+    () =>
+      window.location.hash === '#admin' ||
+      window.location.pathname === '/admin'
+  );
+
+  const [products, setProducts] = useState<Product[]>(FALLBACK_PRODUCTS);
+  const [isLoadingProducts, setIsLoadingProducts] = useState<boolean>(true);
+
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [sortBy, setSortBy] = useState<string>('featured');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState<boolean>(false);
-  const [selectedSizes, setSelectedSizes] = useState<Record<string, string>>({
-    'k-01': 'M',
-    'k-02': 'L',
-    'k-03': 'M',
-    'k-04': 'L',
-    'k-05': 'All Size',
-    'k-06': 'M',
-  });
-  const [promoCode, setPromoCode] = useState<string>('');
-  const [discountPercent, setDiscountPercent] = useState<number>(0);
-  const [promoError, setPromoError] = useState<string>('');
-  const [checkoutStep, setCheckoutStep] = useState<'cart' | 'form' | 'success'>(
-    'cart'
+  const [selectedSizes, setSelectedSizes] = useState<Record<string, string>>(
+    {}
   );
-  const [orderForm, setOrderForm] = useState({
-    name: '',
-    phone: '',
-    address: '',
-    paymentMethod: 'qris',
-    notes: '',
-  });
+  const [promoInput, setPromoInput] = useState<string>('');
+  const [promoApplied, setPromoApplied] = useState<boolean>(false);
+  const [customerName, setCustomerName] = useState<string>('');
+  const [customerAddress, setCustomerAddress] = useState<string>('');
 
-  const handleSelectSize = (productId: string, size: string) => {
-    setSelectedSizes((prev) => ({ ...prev, [productId]: size }));
-  };
+  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState<boolean>(false);
+  const [passwordInput, setPasswordInput] = useState<string>('');
+  const [loginError, setLoginError] = useState<string>('');
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
-  const handleAddToCart = (product: Product) => {
-    const chosenSize = selectedSizes[product.id] || product.sizes[0];
-    const cartItemId = `${product.id}-${chosenSize}`;
+  const [newName, setNewName] = useState('');
+  const [newCategory, setNewCategory] = useState('tops');
+  const [newPrice, setNewPrice] = useState('');
+  const [newOriginalPrice, setNewOriginalPrice] = useState('');
+  const [newTag, setNewTag] = useState('');
+  const [newDescription, setNewDescription] = useState('');
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string>('');
 
-    setCart((prev) => {
-      const existing = prev.find((item) => item.cartItemId === cartItemId);
-      if (existing) {
-        return prev.map((item) =>
-          item.cartItemId === cartItemId
-            ? { ...item, quantity: item.quantity + 1 }
-            : item
-        );
+  useEffect(() => {
+    const handleHashChange = () => {
+      setIsAdminRoute(
+        window.location.hash === '#admin' ||
+          window.location.pathname === '/admin'
+      );
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
+  const fetchProducts = async () => {
+    if (!supabase) {
+      setIsLoadingProducts(false);
+      return;
+    }
+    setIsLoadingProducts(true);
+    const { data, error } = await supabase
+      .from('products')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (!error && data) {
+      if (data.length > 0) {
+        const mapped: Product[] = data.map((item: any) => ({
+          id: item.id,
+          name: item.name,
+          category: item.category,
+          categoryLabel: item.category_label,
+          price: Number(item.price),
+          originalPrice: item.original_price
+            ? Number(item.original_price)
+            : undefined,
+          tag: item.tag || undefined,
+          image: item.image,
+          description: item.description,
+        }));
+        setProducts(mapped);
+      } else {
+        setProducts([]);
       }
-      return [
-        ...prev,
+    }
+    setIsLoadingProducts(false);
+  };
+
+  useEffect(() => {
+    fetchProducts();
+  }, []);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImageFile(file);
+    setImagePreview(URL.createObjectURL(file));
+  };
+
+  const handleAddProduct = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!supabase) {
+      alert('Publishable Key Supabase belum diisi di dalam file App.tsx!');
+      return;
+    }
+    if (!imageFile) {
+      alert('Pilih foto produk terlebih dahulu!');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const fileExt = imageFile.name.split('.').pop();
+      const fileName = `${Date.now()}-${Math.random()
+        .toString(36)
+        .substring(2)}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('product-images')
+        .upload(fileName, imageFile);
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from('product-images')
+        .getPublicUrl(fileName);
+
+      const categoryObj =
+        CATEGORY_OPTIONS.find((c) => c.key === newCategory) ||
+        CATEGORY_OPTIONS[0];
+
+      const { error: insertError } = await supabase.from('products').insert([
         {
-          cartItemId,
-          productId: product.id,
-          name: product.name,
-          price: product.price,
-          size: chosenSize,
-          image: product.image,
-          quantity: 1,
+          name: newName,
+          category: newCategory,
+          category_label: categoryObj.label,
+          price: Number(newPrice),
+          original_price: newOriginalPrice ? Number(newOriginalPrice) : null,
+          tag: newTag.trim() || null,
+          image: urlData.publicUrl,
+          description: newDescription,
         },
-      ];
-    });
-    setIsCartOpen(true);
+      ]);
+
+      if (insertError) throw insertError;
+
+      setNewName('');
+      setNewPrice('');
+      setNewOriginalPrice('');
+      setNewTag('');
+      setNewDescription('');
+      setImageFile(null);
+      setImagePreview('');
+      await fetchProducts();
+      alert('Produk berhasil ditambahkan ke toko!');
+    } catch (err: any) {
+      alert('Gagal upload produk: ' + err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const updateCartQty = (cartItemId: string, delta: number) => {
-    setCart((prev) =>
-      prev
-        .map((item) => {
-          if (item.cartItemId === cartItemId) {
-            const newQty = item.quantity + delta;
-            return newQty > 0 ? { ...item, quantity: newQty } : null;
-          }
-          return item;
-        })
-        .filter((item): item is CartItem => item !== null)
-    );
-  };
+  const handleDeleteProduct = async (id: string, name: string) => {
+    if (!supabase) return;
+    const confirmDelete = window.confirm(`Yakin mau hapus "${name}"?`);
+    if (!confirmDelete) return;
 
-  const applyPromo = () => {
-    if (promoCode.trim().toUpperCase() === 'KALABARU') {
-      setDiscountPercent(10);
-      setPromoError('');
+    const { error } = await supabase.from('products').delete().eq('id', id);
+    if (error) {
+      alert('Gagal menghapus: ' + error.message);
     } else {
-      setPromoError('Kode voucher tidak valid');
-      setDiscountPercent(0);
+      await fetchProducts();
     }
   };
 
   const filteredProducts = useMemo(() => {
-    let result = PRODUCTS.filter((p) => {
-      const matchCat =
-        selectedCategory === 'all' || p.category === selectedCategory;
+    return products.filter((product) => {
+      const matchCategory =
+        selectedCategory === 'all' || product.category === selectedCategory;
       const matchSearch =
-        p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.description.toLowerCase().includes(searchQuery.toLowerCase());
-      return matchCat && matchSearch;
+        product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        product.description.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchCategory && matchSearch;
     });
+  }, [products, selectedCategory, searchQuery]);
 
-    if (sortBy === 'price-low') {
-      result.sort((a, b) => a.price - b.price);
-    } else if (sortBy === 'price-high') {
-      result.sort((a, b) => b.price - a.price);
-    }
-    return result;
-  }, [selectedCategory, searchQuery, sortBy]);
+  const addToCart = (product: Product) => {
+    const size = selectedSizes[product.id] || 'M';
+    setCart((prev) => {
+      const existing = prev.find(
+        (item) => item.id === product.id && item.size === size
+      );
+      if (existing) {
+        return prev.map((item) =>
+          item.id === product.id && item.size === size
+            ? { ...item, quantity: item.quantity + 1 }
+            : item
+        );
+      }
+      return [...prev, { ...product, size, quantity: 1 }];
+    });
+    setIsCartOpen(true);
+  };
 
-  const cartSubtotal = cart.reduce(
+  const updateQuantity = (id: string, size: string, delta: number) => {
+    setCart((prev) =>
+      prev
+        .map((item) =>
+          item.id === id && item.size === size
+            ? { ...item, quantity: item.quantity + delta }
+            : item
+        )
+        .filter((item) => item.quantity > 0)
+    );
+  };
+
+  const subtotal = cart.reduce(
     (sum, item) => sum + item.price * item.quantity,
     0
   );
-  const discountAmount = Math.round(cartSubtotal * (discountPercent / 100));
-  const cartTotal = cartSubtotal - discountAmount;
+  const discount = promoApplied ? Math.round(subtotal * 0.1) : 0;
+  const total = subtotal - discount;
   const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
 
-  const handleSendToWhatsApp = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!orderForm.name || !orderForm.phone || !orderForm.address) {
-      alert('Mohon isi nama, nomor HP, dan alamat pengiriman.');
-      return;
-    }
-
-    const itemsText = cart
+  const handleCheckoutWhatsApp = () => {
+    if (cart.length === 0) return;
+    const itemLines = cart
       .map(
-        (item) =>
-          `- ${item.name} (${item.size}) x${item.quantity} = Rp ${(
-            item.price * item.quantity
-          ).toLocaleString('id-ID')}`
+        (item, idx) =>
+          `${idx + 1}. ${item.name} (Size ${item.size}) x${
+            item.quantity
+          } - ${formatRupiah(item.price * item.quantity)}`
       )
       .join('%0A');
 
     const message =
-      `Halo Admin KALA STUDIOS! Saya mau pesan:%0A%0A` +
-      `*Nama:* ${orderForm.name}%0A` +
-      `*No HP:* ${orderForm.phone}%0A` +
-      `*Alamat:* ${orderForm.address}%0A` +
-      `*Metode Bayar:* ${orderForm.paymentMethod.toUpperCase()}%0A` +
-      (orderForm.notes ? `*Catatan:* ${orderForm.notes}%0A` : '') +
-      `%0A*Rincian Belanja:*%0A${itemsText}%0A%0A` +
-      `*Subtotal:* Rp ${cartSubtotal.toLocaleString('id-ID')}%0A` +
-      (discountAmount > 0
-        ? `*Diskon Promo:* -Rp ${discountAmount.toLocaleString('id-ID')}%0A`
-        : '') +
-      `*Total Bayar:* Rp ${cartTotal.toLocaleString('id-ID')}`;
+      `Halo Admin ${STORE_NAME_FIRST} ${STORE_NAME_SECOND}! Saya mau pesan:%0A%0A` +
+      `${itemLines}%0A%0A` +
+      `Subtotal: ${formatRupiah(subtotal)}%0A` +
+      (promoApplied ? `Diskon Promo (10%): -${formatRupiah(discount)}%0A` : '') +
+      `*Total Bayar: ${formatRupiah(total)}*%0A%0A` +
+      `Nama: ${customerName || '-'}%0A` +
+      `Alamat Pengiriman: ${customerAddress || '-'}`;
 
-    // Ganti nomor di bawah ini dengan nomor WhatsApp tokomu
-    const waUrl = `https://wa.me/6282321942197?text=${message}`;
-    window.open(waUrl, '_blank');
-    setCheckoutStep('success');
+    window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${message}`, '_blank');
   };
 
-  return (
-    <div className="min-h-screen bg-[#FDFDFD] text-[#1E1E1E] antialiased selection:bg-neutral-900 selection:text-white font-sans">
-      <div className="bg-black text-white text-[12px] py-2 px-4 text-center tracking-widest uppercase font-medium flex items-center justify-center gap-2">
-        <Sparkles size={13} className="text-amber-400" />
-        <span>
-          Gunakan kode <b>KALABARU</b> untuk diskon 10% pesanan pertama
-        </span>
-      </div>
-
-      <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-neutral-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-8">
-            <a
-              href="#"
-              className="text-xl font-black tracking-tighter uppercase font-mono"
-            >
-              KALA<span className="text-neutral-400">.</span>STUDIOS
-            </a>
-            <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-neutral-600">
-              <a href="#katalog" className="hover:text-black transition">
-                Katalog
-              </a>
-              <a href="#size-chart" className="hover:text-black transition">
-                Size Chart
-              </a>
-              <a href="#guarantee" className="hover:text-black transition">
-                Keunggulan
-              </a>
-            </nav>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <div className="relative hidden sm:block">
-              <input
-                type="text"
-                placeholder="Cari artikel baju..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="bg-neutral-100/80 border-0 rounded-full pl-9 pr-4 py-1.5 text-xs w-48 focus:w-64 focus:bg-white focus:ring-1 focus:ring-black transition-all outline-none"
-              />
-              <Search
-                size={14}
-                className="absolute left-3 top-2.5 text-neutral-400"
-              />
+  if (isAdminRoute) {
+    if (!isAdminLoggedIn) {
+      return (
+        <div className="min-h-screen bg-neutral-950 text-white flex items-center justify-center p-4">
+          <div className="w-full max-w-sm bg-neutral-900 border border-neutral-800 rounded-2xl p-6 space-y-5">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-white text-black flex items-center justify-center">
+                <Lock className="w-5 h-5" />
+              </div>
+              <div>
+                <h1 className="font-bold text-lg">Admin Dashboard</h1>
+                <p className="text-xs text-neutral-400">
+                  {STORE_NAME_FIRST}.{STORE_NAME_SECOND}
+                </p>
+              </div>
             </div>
 
-            <button
-              onClick={() => setIsCartOpen(true)}
-              className="relative p-2.5 rounded-full hover:bg-neutral-100 transition flex items-center justify-center text-neutral-800"
-              aria-label="Keranjang Belanja"
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (passwordInput === ADMIN_PASSWORD) {
+                  setIsAdminLoggedIn(true);
+                  setLoginError('');
+                } else {
+                  setLoginError('Password salah!');
+                }
+              }}
+              className="space-y-4"
             >
-              <ShoppingBag size={20} />
-              {totalItems > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 bg-black text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center shadow-sm">
-                  {totalItems}
-                </span>
-              )}
+              <div>
+                <label className="block text-xs text-neutral-400 mb-1.5">
+                  Password Admin
+                </label>
+                <input
+                  type="password"
+                  value={passwordInput}
+                  onChange={(e) => setPasswordInput(e.target.value)}
+                  placeholder="Masukkan password..."
+                  className="w-full px-3.5 py-2.5 bg-neutral-950 border border-neutral-800 rounded-xl text-sm focus:outline-none focus:border-white"
+                />
+                {loginError && (
+                  <p className="text-xs text-red-400 mt-1.5">{loginError}</p>
+                )}
+              </div>
+              <button
+                type="submit"
+                className="w-full py-2.5 bg-white text-black font-semibold rounded-xl text-sm hover:bg-neutral-200 transition"
+              >
+                Masuk Dashboard
+              </button>
+            </form>
+
+            <button
+              onClick={() => {
+                window.location.hash = '';
+                setIsAdminRoute(false);
+              }}
+              className="w-full text-center text-xs text-neutral-500 hover:text-white"
+            >
+              ← Kembali ke Halaman Toko
             </button>
           </div>
         </div>
+      );
+    }
+
+    return (
+      <div className="min-h-screen bg-neutral-50 text-neutral-900 pb-20">
+        <header className="bg-white border-b border-neutral-200 sticky top-0 z-20">
+          <div className="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="font-black tracking-tight text-lg">
+                {STORE_NAME_FIRST}
+                <span className="text-neutral-400">.</span>
+                {STORE_NAME_SECOND}
+              </span>
+              <span className="text-[10px] font-bold px-2 py-0.5 bg-black text-white rounded-full">
+                ADMIN
+              </span>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => {
+                  window.location.hash = '';
+                  setIsAdminRoute(false);
+                }}
+                className="text-xs font-medium px-3 py-1.5 border border-neutral-300 rounded-lg hover:bg-neutral-100"
+              >
+                Lihat Toko
+              </button>
+              <button
+                onClick={() => setIsAdminLoggedIn(false)}
+                className="p-2 text-neutral-500 hover:text-red-600"
+                title="Keluar"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </header>
+
+        <main className="max-w-4xl mx-auto px-4 pt-6 space-y-8">
+          {!isSupabaseConfigured && (
+            <div className="p-4 bg-amber-50 border border-amber-300 rounded-xl text-xs text-amber-900">
+              <strong>Perhatian:</strong> Kamu belum memasukkan{' '}
+              <code>SUPABASE_ANON_KEY</code> di bagian atas file{' '}
+              <code>src/App.tsx</code>.
+            </div>
+          )}
+
+          <section className="bg-white border border-neutral-200 rounded-2xl p-5 sm:p-6 shadow-sm">
+            <h2 className="font-bold text-base mb-4 flex items-center gap-2">
+              <Plus className="w-4 h-4" /> Tambah Produk Baru
+            </h2>
+
+            <form onSubmit={handleAddProduct} className="space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-neutral-700 mb-1.5">
+                  Foto Produk (Pilih dari Galeri) *
+                </label>
+                <label className="flex flex-col items-center justify-center border-2 border-dashed border-neutral-300 rounded-xl p-4 cursor-pointer hover:border-black transition bg-neutral-50">
+                  {imagePreview ? (
+                    <img
+                      src={imagePreview}
+                      alt="Preview"
+                      className="h-44 object-contain rounded-lg"
+                    />
+                  ) : (
+                    <div className="text-center py-4">
+                      <ImageIcon className="w-8 h-8 text-neutral-400 mx-auto mb-2" />
+                      <p className="text-xs font-medium text-neutral-700">
+                        Klik untuk pilih foto baju
+                      </p>
+                      <p className="text-[11px] text-neutral-400 mt-0.5">
+                        JPG, PNG, atau WEBP
+                      </p>
+                    </div>
+                  )}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileSelect}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-neutral-700 mb-1">
+                    Nama Produk *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                    placeholder="Contoh: Boxy Oversized Tee"
+                    className="w-full px-3.5 py-2 border border-neutral-300 rounded-xl text-sm focus:outline-none focus:border-black"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-neutral-700 mb-1">
+                    Kategori *
+                  </label>
+                  <select
+                    value={newCategory}
+                    onChange={(e) => setNewCategory(e.target.value)}
+                    className="w-full px-3.5 py-2 border border-neutral-300 rounded-xl text-sm bg-white focus:outline-none focus:border-black"
+                  >
+                    {CATEGORY_OPTIONS.map((cat) => (
+                      <option key={cat.key} value={cat.key}>
+                        {cat.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-neutral-700 mb-1">
+                    Harga Jual (Angka saja) *
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    value={newPrice}
+                    onChange={(e) => setNewPrice(e.target.value)}
+                    placeholder="Contoh: 189000"
+                    className="w-full px-3.5 py-2 border border-neutral-300 rounded-xl text-sm focus:outline-none focus:border-black"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-neutral-700 mb-1">
+                    Harga Coret / Sebelum Diskon (Opsional)
+                  </label>
+                  <input
+                    type="number"
+                    value={newOriginalPrice}
+                    onChange={(e) => setNewOriginalPrice(e.target.value)}
+                    placeholder="Contoh: 229000"
+                    className="w-full px-3.5 py-2 border border-neutral-300 rounded-xl text-sm focus:outline-none focus:border-black"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-neutral-700 mb-1">
+                  Label / Tag (Opsional)
+                </label>
+                <input
+                  type="text"
+                  value={newTag}
+                  onChange={(e) => setNewTag(e.target.value)}
+                  placeholder="Contoh: BESTSELLER atau NEW ARRIVAL"
+                  className="w-full px-3.5 py-2 border border-neutral-300 rounded-xl text-sm focus:outline-none focus:border-black"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-neutral-700 mb-1">
+                  Deskripsi Bahan & Ukuran *
+                </label>
+                <textarea
+                  required
+                  rows={3}
+                  value={newDescription}
+                  onChange={(e) => setNewDescription(e.target.value)}
+                  placeholder="Contoh: Cotton Combed 16s 235 GSM, cutting boxy..."
+                  className="w-full px-3.5 py-2 border border-neutral-300 rounded-xl text-sm focus:outline-none focus:border-black"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full py-3 bg-black text-white font-semibold rounded-xl text-sm flex items-center justify-center gap-2 hover:bg-neutral-800 disabled:opacity-50"
+              >
+                <Upload className="w-4 h-4" />
+                {isSubmitting
+                  ? 'Sedang Mengupload Foto...'
+                  : 'Upload & Tampilkan di Toko'}
+              </button>
+            </form>
+          </section>
+
+          <section className="bg-white border border-neutral-200 rounded-2xl p-5 sm:p-6 shadow-sm">
+            <h2 className="font-bold text-base mb-4">
+              Daftar Produk Aktif ({products.length})
+            </h2>
+
+            {products.length === 0 ? (
+              <p className="text-sm text-neutral-500 text-center py-6">
+                Belum ada produk di database. Silakan tambah produk di atas.
+              </p>
+            ) : (
+              <div className="divide-y divide-neutral-100">
+                {products.map((item) => (
+                  <div
+                    key={item.id}
+                    className="py-3 flex items-center justify-between gap-3"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <img
+                        src={item.image}
+                        alt={item.name}
+                        className="w-12 h-14 object-cover rounded-lg bg-neutral-100 shrink-0"
+                      />
+                      <div className="min-w-0">
+                        <p className="font-semibold text-sm truncate">
+                          {item.name}
+                        </p>
+                        <p className="text-xs text-neutral-500">
+                          {item.categoryLabel} • {formatRupiah(item.price)}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleDeleteProduct(item.id, item.name)}
+                      className="p-2 text-neutral-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                      title="Hapus Produk"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        </main>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-white text-neutral-900 font-sans">
+      <div className="bg-neutral-950 text-white text-[11px] tracking-widest uppercase py-2.5 px-4 text-center font-medium">
+        GUNAKAN KODE <span className="underline font-bold">KALABARU</span> UNTUK
+        DISKON 10% PESANAN PERTAMA
+      </div>
+
+      <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-neutral-100">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+          <a href="#" className="text-xl font-black tracking-tighter">
+            {STORE_NAME_FIRST}
+            <span className="text-neutral-400">.</span>
+            {STORE_NAME_SECOND}
+          </a>
+
+          <button
+            onClick={() => setIsCartOpen(true)}
+            className="relative p-2.5 rounded-full hover:bg-neutral-100 transition"
+            aria-label="Keranjang Belanja"
+          >
+            <ShoppingBag className="w-5 h-5" />
+            {totalItems > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 w-5 h-5 bg-black text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                {totalItems}
+              </span>
+            )}
+          </button>
+        </div>
       </header>
 
-      <section className="relative overflow-hidden bg-neutral-50 border-b border-neutral-200/60 py-16 sm:py-24">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 grid lg:grid-cols-2 gap-12 items-center">
-          <div className="space-y-6">
-            <span className="inline-block px-3 py-1 bg-white border border-neutral-200 rounded-full text-xs font-semibold tracking-wider uppercase text-neutral-600">
-              Koleksi Terbaru
-            </span>
-            <h1 className="text-4xl sm:text-6xl font-black tracking-tight leading-[1.08] text-neutral-900">
-              ESSENTIAL WEAR UNTUK GAYA SETIAP HARI.
-            </h1>
-            <p className="text-neutral-600 text-sm sm:text-base max-w-lg leading-relaxed">
-              Material pilihan, cutting boxy santai, dan jahitan presisi standar
-              distro premium. Siap order cepat langsung via WhatsApp tanpa perlu
-              login akun.
-            </p>
-            <div className="pt-2 flex flex-wrap gap-4">
-              <a
-                href="#katalog"
-                className="px-6 py-3.5 bg-black text-white rounded-full text-sm font-semibold hover:bg-neutral-800 transition flex items-center gap-2 group shadow-sm"
-              >
-                Jelajahi Produk
-                <ArrowRight
-                  size={16}
-                  className="group-hover:translate-x-1 transition-transform"
-                />
-              </a>
-              <a
-                href="#size-chart"
-                className="px-6 py-3.5 bg-white border border-neutral-300 text-neutral-800 rounded-full text-sm font-semibold hover:bg-neutral-100 transition"
-              >
-                Cek Panduan Ukuran
-              </a>
-            </div>
-          </div>
-          <div className="relative">
-            <div className="aspect-[4/3] rounded-2xl overflow-hidden bg-neutral-200 shadow-xl border border-neutral-100">
-              <img
-                src="https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?w=1000&auto=format&fit=crop&q=80"
-                alt="Fashion Apparel Showcase"
-                className="w-full h-full object-cover object-center"
-              />
-            </div>
-          </div>
+      <section className="max-w-6xl mx-auto px-4 sm:px-6 pt-12 pb-14 border-b border-neutral-100">
+        <span className="inline-block text-[11px] font-bold tracking-widest uppercase px-3 py-1 bg-neutral-100 rounded-full text-neutral-600 mb-4">
+          KOLEKSI TERBARU
+        </span>
+        <h1 className="text-4xl sm:text-6xl font-black tracking-tight leading-[1.05] max-w-2xl">
+          ESSENTIAL WEAR UNTUK GAYA SETIAP HARI.
+        </h1>
+        <p className="mt-4 text-neutral-500 text-sm sm:text-base max-w-xl leading-relaxed">
+          Material pilihan, cutting boxy santai, dan jahitan presisi standar
+          distro premium. Siap order cepat langsung via WhatsApp tanpa perlu
+          login akun.
+        </p>
+        <div className="mt-7">
+          <a
+            href="#katalog"
+            className="inline-flex items-center gap-2 bg-black text-white text-sm font-semibold px-6 py-3.5 rounded-full hover:bg-neutral-800 transition"
+          >
+            Jelajahi Produk <ArrowRight className="w-4 h-4" />
+          </a>
         </div>
       </section>
 
-      <section id="katalog" className="max-w-7xl mx-auto px-4 sm:px-6 py-14">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-8 border-b border-neutral-200">
-          <div className="flex items-center gap-2 overflow-x-auto pb-2 md:pb-0">
-            {CATEGORIES.map((cat) => (
+      <main id="katalog" className="max-w-6xl mx-auto px-4 sm:px-6 py-12">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+          <div className="flex items-center gap-2 overflow-x-auto pb-2 sm:pb-0">
+            {FILTER_CATEGORIES.map((cat) => (
               <button
                 key={cat.key}
                 onClick={() => setSelectedCategory(cat.key)}
                 className={`px-4 py-2 rounded-full text-xs font-semibold whitespace-nowrap transition ${
                   selectedCategory === cat.key
-                    ? 'bg-black text-white shadow-sm'
-                    : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200/70'
+                    ? 'bg-black text-white'
+                    : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
                 }`}
               >
                 {cat.label}
@@ -405,74 +696,77 @@ export default function App() {
             ))}
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="relative inline-block text-left">
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                className="appearance-none bg-neutral-100 text-xs font-semibold px-4 py-2.5 pr-8 rounded-full border-none cursor-pointer outline-none focus:ring-1 focus:ring-black"
-              >
-                <option value="featured">Paling Populer</option>
-                <option value="price-low">Harga: Rendah ke Tinggi</option>
-                <option value="price-high">Harga: Tinggi ke Rendah</option>
-              </select>
-              <ChevronDown
-                size={14}
-                className="absolute right-3 top-3 pointer-events-none text-neutral-500"
-              />
-            </div>
+          <div className="relative w-full sm:w-64">
+            <Search className="w-4 h-4 text-neutral-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Cari produk..."
+              className="w-full pl-9 pr-4 py-2 bg-neutral-100 rounded-full text-xs focus:outline-none focus:ring-2 focus:ring-black"
+            />
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 pt-8">
-          {filteredProducts.map((product) => {
-            const currentSize = selectedSizes[product.id] || product.sizes[0];
-            return (
-              <div
-                key={product.id}
-                className="group flex flex-col bg-white border border-neutral-200 rounded-2xl overflow-hidden hover:shadow-lg transition-all duration-300"
-              >
-                <div className="relative aspect-square bg-neutral-100 overflow-hidden">
-                  <img
-                    src={product.image}
-                    alt={product.name}
-                    className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
-                    loading="lazy"
-                  />
-                  {product.tag && (
-                    <span className="absolute top-3 left-3 bg-black/80 backdrop-blur-sm text-white text-[10px] font-bold tracking-wider px-2.5 py-1 rounded-full uppercase">
-                      {product.tag}
-                    </span>
-                  )}
-                </div>
-
-                <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
+        {isLoadingProducts ? (
+          <div className="text-center py-20 text-sm text-neutral-400">
+            Memuat koleksi produk...
+          </div>
+        ) : filteredProducts.length === 0 ? (
+          <div className="text-center py-20 text-sm text-neutral-400">
+            Produk tidak ditemukan.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+            {filteredProducts.map((product) => {
+              const activeSize = selectedSizes[product.id] || 'M';
+              return (
+                <div
+                  key={product.id}
+                  className="group flex flex-col justify-between bg-white"
+                >
                   <div>
-                    <span className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider block mb-1">
+                    <div className="relative aspect-[4/5] bg-neutral-100 rounded-2xl overflow-hidden mb-4">
+                      <img
+                        src={product.image}
+                        alt={product.name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                      />
+                      {product.tag && (
+                        <span className="absolute top-3 left-3 bg-white/95 backdrop-blur px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase">
+                          {product.tag}
+                        </span>
+                      )}
+                    </div>
+
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
                       {product.categoryLabel}
-                    </span>
-                    <h3 className="font-bold text-base text-neutral-900 group-hover:text-neutral-700 transition">
-                      {product.name}
-                    </h3>
-                    <p className="text-xs text-neutral-500 line-clamp-2 mt-1 leading-relaxed">
+                    </p>
+                    <h3 className="text-lg font-bold mt-0.5">{product.name}</h3>
+                    <p className="text-xs text-neutral-500 mt-1 line-clamp-2 leading-relaxed">
                       {product.description}
                     </p>
                   </div>
 
-                  <div className="pt-2 border-t border-neutral-100 space-y-3">
-                    <div>
-                      <span className="text-[11px] font-medium text-neutral-400 block mb-1.5">
+                  <div className="mt-4 pt-4 border-t border-neutral-100">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-[11px] text-neutral-400 font-medium">
                         Pilih Ukuran:
                       </span>
-                      <div className="flex flex-wrap gap-1.5">
-                        {product.sizes.map((sz) => (
+                      <div className="flex gap-1.5">
+                        {SIZES.map((sz) => (
                           <button
                             key={sz}
-                            onClick={() => handleSelectSize(product.id, sz)}
-                            className={`px-3 py-1 rounded-md text-xs font-semibold border transition ${
-                              currentSize === sz
-                                ? 'bg-black text-white border-black'
-                                : 'bg-neutral-50 text-neutral-700 border-neutral-200 hover:border-neutral-400'
+                            onClick={() =>
+                              setSelectedSizes((prev) => ({
+                                ...prev,
+                                [product.id]: sz,
+                              }))
+                            }
+                            className={`w-7 h-7 rounded-lg text-xs font-bold transition ${
+                              activeSize === sz
+                                ? 'bg-black text-white'
+                                : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
                             }`}
                           >
                             {sz}
@@ -481,421 +775,197 @@ export default function App() {
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between pt-2">
+                    <div className="flex items-center justify-between gap-3">
                       <div>
-                        <div className="text-lg font-black text-neutral-900">
-                          Rp {product.price.toLocaleString('id-ID')}
-                        </div>
+                        <p className="font-black text-base">
+                          {formatRupiah(product.price)}
+                        </p>
                         {product.originalPrice && (
-                          <span className="text-xs text-neutral-400 line-through">
-                            Rp {product.originalPrice.toLocaleString('id-ID')}
-                          </span>
+                          <p className="text-xs text-neutral-400 line-through">
+                            {formatRupiah(product.originalPrice)}
+                          </p>
                         )}
                       </div>
-
                       <button
-                        onClick={() => handleAddToCart(product)}
-                        className="bg-black hover:bg-neutral-800 text-white px-4 py-2.5 rounded-full text-xs font-bold transition flex items-center gap-1.5 shadow-sm active:scale-95"
+                        onClick={() => addToCart(product)}
+                        className="px-4 py-2.5 bg-black text-white text-xs font-semibold rounded-full hover:bg-neutral-800 transition flex items-center gap-1.5"
                       >
-                        <Plus size={14} />
-                        Keranjang
+                        <Plus className="w-3.5 h-3.5" /> Keranjang
                       </button>
                     </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {filteredProducts.length === 0 && (
-          <div className="py-20 text-center">
-            <p className="text-neutral-500 text-sm">
-              Produk yang kamu cari tidak ditemukan.
-            </p>
+              );
+            })}
           </div>
         )}
-      </section>
+      </main>
 
-      <section
-        id="size-chart"
-        className="bg-neutral-100 py-16 border-y border-neutral-200"
-      >
-        <div className="max-w-4xl mx-auto px-4 sm:px-6">
-          <div className="text-center mb-8">
-            <h2 className="text-2xl font-black text-neutral-900">
-              PANDUAN UKURAN (SIZE CHART)
-            </h2>
+      <section className="border-t border-neutral-100 bg-neutral-50 py-12">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 grid grid-cols-1 sm:grid-cols-3 gap-6 text-center">
+          <div className="p-4">
+            <ShieldCheck className="w-6 h-6 mx-auto mb-2 text-neutral-800" />
+            <h4 className="font-bold text-sm">Kualitas Terjamin</h4>
             <p className="text-xs text-neutral-500 mt-1">
-              Cek estimasi ukuran baju yang paling pas untuk badanmu
+              Quality control ketat sebelum paket dikirim.
             </p>
           </div>
-
-          <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs sm:text-sm">
-                <thead className="bg-neutral-900 text-white font-semibold uppercase text-[11px] tracking-wider">
-                  <tr>
-                    <th className="py-3 px-4">Size</th>
-                    <th className="py-3 px-4">Lebar Dada (cm)</th>
-                    <th className="py-3 px-4">Panjang Badan (cm)</th>
-                    <th className="py-3 px-4">Estimasi BB (kg)</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-neutral-100 font-medium text-neutral-700">
-                  <tr className="hover:bg-neutral-50">
-                    <td className="py-3 px-4 font-bold text-black">S</td>
-                    <td className="py-3 px-4">52</td>
-                    <td className="py-3 px-4">68</td>
-                    <td className="py-3 px-4">45 - 58 kg</td>
-                  </tr>
-                  <tr className="hover:bg-neutral-50">
-                    <td className="py-3 px-4 font-bold text-black">M</td>
-                    <td className="py-3 px-4">55</td>
-                    <td className="py-3 px-4">71</td>
-                    <td className="py-3 px-4">59 - 70 kg</td>
-                  </tr>
-                  <tr className="hover:bg-neutral-50">
-                    <td className="py-3 px-4 font-bold text-black">L</td>
-                    <td className="py-3 px-4">58</td>
-                    <td className="py-3 px-4">74</td>
-                    <td className="py-3 px-4">71 - 82 kg</td>
-                  </tr>
-                  <tr className="hover:bg-neutral-50">
-                    <td className="py-3 px-4 font-bold text-black">XL</td>
-                    <td className="py-3 px-4">62</td>
-                    <td className="py-3 px-4">77</td>
-                    <td className="py-3 px-4">83 - 95 kg</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-            <div className="p-4 bg-neutral-50 border-t border-neutral-100 text-[11px] text-neutral-500 text-center">
-              *Toleransi ukuran ± 1 - 2 cm karena proses produksi.
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section id="guarantee" className="max-w-7xl mx-auto px-4 sm:px-6 py-12">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-center">
-          <div className="p-6 rounded-2xl bg-white border border-neutral-200">
-            <Truck className="mx-auto mb-3 text-neutral-800" size={24} />
-            <h4 className="font-bold text-sm mb-1">Pengiriman Cepat</h4>
-            <p className="text-xs text-neutral-500">
-              Order sebelum jam 16:00 WIB dikirim di hari yang sama.
+          <div className="p-4">
+            <Truck className="w-6 h-6 mx-auto mb-2 text-neutral-800" />
+            <h4 className="font-bold text-sm">Pengiriman Cepat</h4>
+            <p className="text-xs text-neutral-500 mt-1">
+              Order sebelum jam 15.00 dikirim di hari yang sama.
             </p>
           </div>
-          <div className="p-6 rounded-2xl bg-white border border-neutral-200">
-            <ShieldCheck className="mx-auto mb-3 text-neutral-800" size={24} />
-            <h4 className="font-bold text-sm mb-1">Garansi Produk Asli</h4>
-            <p className="text-xs text-neutral-500">
-              Jaminan material katun kualitas premium & jahitan rapi.
-            </p>
-          </div>
-          <div className="p-6 rounded-2xl bg-white border border-neutral-200">
-            <RefreshCw className="mx-auto mb-3 text-neutral-800" size={24} />
-            <h4 className="font-bold text-sm mb-1">Bisa Tukar Ukuran</h4>
-            <p className="text-xs text-neutral-500">
-              Kekecilan atau kebesaran? Bisa retur maksimal 3 hari.
+          <div className="p-4">
+            <RefreshCw className="w-6 h-6 mx-auto mb-2 text-neutral-800" />
+            <h4 className="font-bold text-sm">Tukar Ukuran Mudah</h4>
+            <p className="text-xs text-neutral-500 mt-1">
+              Garansi tukar size maksimal 3 hari setelah barang tiba.
             </p>
           </div>
         </div>
       </section>
+
+      <footer className="border-t border-neutral-200 py-8 px-4 text-center text-xs text-neutral-400">
+        <p>
+          © 2026 {STORE_NAME_FIRST}.{STORE_NAME_SECOND}. All rights reserved.
+        </p>
+      </footer>
 
       {isCartOpen && (
-        <div className="fixed inset-0 z-50 overflow-hidden">
-          <div
-            className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity"
-            onClick={() => setIsCartOpen(false)}
-          />
-
-          <div className="fixed inset-y-0 right-0 max-w-full flex pl-10">
-            <div className="w-screen max-w-md bg-white shadow-2xl flex flex-col">
-              <div className="p-5 border-b border-neutral-100 flex items-center justify-between bg-neutral-50">
-                <div className="flex items-center gap-2">
-                  <ShoppingBag size={18} />
-                  <h3 className="font-bold text-base">
-                    {checkoutStep === 'cart'
-                      ? 'Keranjang Belanja'
-                      : 'Form Pemesanan'}
-                  </h3>
-                  <span className="text-xs bg-neutral-200 px-2 py-0.5 rounded-full font-bold">
-                    {totalItems}
-                  </span>
-                </div>
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-xs">
+          <div className="w-full max-w-md bg-white h-full flex flex-col justify-between p-6 overflow-y-auto">
+            <div>
+              <div className="flex items-center justify-between pb-4 border-b border-neutral-100">
+                <h2 className="font-bold text-lg">
+                  Keranjang ({totalItems})
+                </h2>
                 <button
                   onClick={() => setIsCartOpen(false)}
-                  className="p-1 rounded-full hover:bg-neutral-200 text-neutral-600 transition"
+                  className="p-2 hover:bg-neutral-100 rounded-full"
                 >
-                  <X size={18} />
+                  <X className="w-5 h-5" />
                 </button>
               </div>
 
-              <div className="flex-1 overflow-y-auto p-5 space-y-4">
-                {checkoutStep === 'cart' && (
-                  <>
-                    {cart.length === 0 ? (
-                      <div className="h-64 flex flex-col items-center justify-center text-center">
-                        <ShoppingBag
-                          size={40}
-                          className="text-neutral-300 mb-3"
-                        />
-                        <p className="text-sm text-neutral-500">
-                          Keranjang masih kosong nih.
+              {cart.length === 0 ? (
+                <div className="text-center py-16 text-sm text-neutral-400">
+                  Keranjang belanja masih kosong.
+                </div>
+              ) : (
+                <div className="divide-y divide-neutral-100 my-4">
+                  {cart.map((item) => (
+                    <div
+                      key={`${item.id}-${item.size}`}
+                      className="py-4 flex gap-3.5"
+                    >
+                      <img
+                        src={item.image}
+                        alt={item.name}
+                        className="w-16 h-20 object-cover rounded-xl bg-neutral-100"
+                      />
+                      <div className="flex-1">
+                        <h4 className="font-bold text-sm">{item.name}</h4>
+                        <p className="text-xs text-neutral-400">
+                          Ukuran: {item.size}
                         </p>
-                        <button
-                          onClick={() => setIsCartOpen(false)}
-                          className="mt-4 text-xs font-bold underline"
-                        >
-                          Mulai Belanja
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        {cart.map((item) => (
-                          <div
-                            key={item.cartItemId}
-                            className="flex gap-3.5 p-3 rounded-xl border border-neutral-100 bg-neutral-50/50"
-                          >
-                            <img
-                              src={item.image}
-                              alt={item.name}
-                              className="w-16 h-16 rounded-lg object-cover bg-neutral-200"
-                            />
-                            <div className="flex-1 flex flex-col justify-between">
-                              <div>
-                                <h4 className="text-xs font-bold line-clamp-1">
-                                  {item.name}
-                                </h4>
-                                <span className="text-[11px] text-neutral-500 block">
-                                  Size: {item.size}
-                                </span>
-                                <span className="text-xs font-semibold text-neutral-900 mt-0.5 block">
-                                  Rp {item.price.toLocaleString('id-ID')}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-2 mt-2">
-                                <button
-                                  onClick={() =>
-                                    updateCartQty(item.cartItemId, -1)
-                                  }
-                                  className="w-6 h-6 rounded bg-white border border-neutral-200 flex items-center justify-center hover:bg-neutral-100 text-neutral-700"
-                                >
-                                  <Minus size={12} />
-                                </button>
-                                <span className="text-xs font-bold w-4 text-center">
-                                  {item.quantity}
-                                </span>
-                                <button
-                                  onClick={() =>
-                                    updateCartQty(item.cartItemId, 1)
-                                  }
-                                  className="w-6 h-6 rounded bg-white border border-neutral-200 flex items-center justify-center hover:bg-neutral-100 text-neutral-700"
-                                >
-                                  <Plus size={12} />
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </>
-                )}
-
-                {checkoutStep === 'form' && (
-                  <form
-                    id="checkout-form"
-                    onSubmit={handleSendToWhatsApp}
-                    className="space-y-4"
-                  >
-                    <div>
-                      <label className="text-xs font-semibold block mb-1">
-                        Nama Lengkap
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        placeholder="Contoh: Kenzo"
-                        value={orderForm.name}
-                        onChange={(e) =>
-                          setOrderForm({ ...orderForm, name: e.target.value })
-                        }
-                        className="w-full text-xs p-2.5 rounded-lg border border-neutral-300 focus:ring-1 focus:ring-black outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs font-semibold block mb-1">
-                        Nomor WhatsApp Aktif
-                      </label>
-                      <input
-                        type="tel"
-                        required
-                        placeholder="Contoh: 081234567890"
-                        value={orderForm.phone}
-                        onChange={(e) =>
-                          setOrderForm({ ...orderForm, phone: e.target.value })
-                        }
-                        className="w-full text-xs p-2.5 rounded-lg border border-neutral-300 focus:ring-1 focus:ring-black outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs font-semibold block mb-1">
-                        Alamat Pengiriman
-                      </label>
-                      <textarea
-                        required
-                        rows={3}
-                        placeholder="Nama jalan, nomor rumah, RT/RW, kecamatan, kota, kode pos"
-                        value={orderForm.address}
-                        onChange={(e) =>
-                          setOrderForm({
-                            ...orderForm,
-                            address: e.target.value,
-                          })
-                        }
-                        className="w-full text-xs p-2.5 rounded-lg border border-neutral-300 focus:ring-1 focus:ring-black outline-none resize-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs font-semibold block mb-1">
-                        Metode Pembayaran
-                      </label>
-                      <div className="grid grid-cols-3 gap-2">
-                        {['qris', 'transfer', 'cod'].map((method) => (
+                        <p className="font-bold text-xs mt-1">
+                          {formatRupiah(item.price)}
+                        </p>
+                        <div className="flex items-center gap-2 mt-2">
                           <button
-                            key={method}
-                            type="button"
                             onClick={() =>
-                              setOrderForm({
-                                ...orderForm,
-                                paymentMethod: method,
-                              })
+                              updateQuantity(item.id, item.size, -1)
                             }
-                            className={`p-2 rounded-lg text-xs font-bold uppercase border transition ${
-                              orderForm.paymentMethod === method
-                                ? 'bg-black text-white border-black'
-                                : 'bg-neutral-50 text-neutral-600 border-neutral-200'
-                            }`}
+                            className="w-6 h-6 rounded-md bg-neutral-100 flex items-center justify-center"
                           >
-                            {method}
+                            <Minus className="w-3 h-3" />
                           </button>
-                        ))}
+                          <span className="text-xs font-bold">
+                            {item.quantity}
+                          </span>
+                          <button
+                            onClick={() =>
+                              updateQuantity(item.id, item.size, 1)
+                            }
+                            className="w-6 h-6 rounded-md bg-neutral-100 flex items-center justify-center"
+                          >
+                            <Plus className="w-3 h-3" />
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </form>
-                )}
-
-                {checkoutStep === 'success' && (
-                  <div className="text-center py-12 space-y-4">
-                    <div className="w-12 h-12 bg-green-100 text-green-700 rounded-full flex items-center justify-center mx-auto">
-                      <Check size={24} />
-                    </div>
-                    <h4 className="font-bold text-lg">Pesanan Diteruskan!</h4>
-                    <p className="text-xs text-neutral-500 max-w-xs mx-auto">
-                      Format order sudah dibuka di WhatsApp admin. Silakan kirim
-                      pesan untuk konfirmasi pembayaran & resi.
-                    </p>
-                    <button
-                      onClick={() => {
-                        setCart([]);
-                        setCheckoutStep('cart');
-                        setIsCartOpen(false);
-                      }}
-                      className="px-6 py-2.5 bg-black text-white rounded-full text-xs font-bold"
-                    >
-                      Selesai
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {cart.length > 0 && checkoutStep !== 'success' && (
-                <div className="p-5 border-t border-neutral-100 bg-neutral-50 space-y-3">
-                  {checkoutStep === 'cart' && (
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        placeholder="Punya voucher? (Ketik: KALABARU)"
-                        value={promoCode}
-                        onChange={(e) => setPromoCode(e.target.value)}
-                        className="flex-1 text-xs px-3 py-2 rounded-lg border border-neutral-300 uppercase outline-none focus:border-black"
-                      />
-                      <button
-                        onClick={applyPromo}
-                        className="px-3 py-2 bg-neutral-200 text-xs font-bold rounded-lg hover:bg-neutral-300"
-                      >
-                        Pakai
-                      </button>
-                    </div>
-                  )}
-
-                  {promoError && (
-                    <p className="text-[11px] text-red-500">{promoError}</p>
-                  )}
-                  {discountPercent > 0 && (
-                    <p className="text-[11px] text-green-600 font-medium">
-                      Voucher KALABARU aktif (Diskon 10%)
-                    </p>
-                  )}
-
-                  <div className="space-y-1 text-xs pt-1">
-                    <div className="flex justify-between text-neutral-500">
-                      <span>Subtotal</span>
-                      <span>Rp {cartSubtotal.toLocaleString('id-ID')}</span>
-                    </div>
-                    {discountAmount > 0 && (
-                      <div className="flex justify-between text-green-600 font-semibold">
-                        <span>Potongan Voucher</span>
-                        <span>
-                          -Rp {discountAmount.toLocaleString('id-ID')}
-                        </span>
-                      </div>
-                    )}
-                    <div className="flex justify-between text-sm font-black text-neutral-900 pt-1 border-t border-neutral-200">
-                      <span>Total</span>
-                      <span>Rp {cartTotal.toLocaleString('id-ID')}</span>
-                    </div>
-                  </div>
-
-                  {checkoutStep === 'cart' ? (
-                    <button
-                      onClick={() => setCheckoutStep('form')}
-                      className="w-full py-3 bg-black text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 hover:bg-neutral-800 transition"
-                    >
-                      Lanjut ke Checkout
-                      <ArrowRight size={14} />
-                    </button>
-                  ) : (
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setCheckoutStep('cart')}
-                        className="px-4 py-3 bg-neutral-200 text-neutral-700 rounded-xl text-xs font-bold"
-                      >
-                        Kembali
-                      </button>
-                      <button
-                        type="submit"
-                        form="checkout-form"
-                        className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition"
-                      >
-                        <Phone size={14} />
-                        Kirim Order ke WhatsApp
-                      </button>
-                    </div>
-                  )}
+                  ))}
                 </div>
               )}
             </div>
+
+            {cart.length > 0 && (
+              <div className="border-t border-neutral-100 pt-4 space-y-3">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={promoInput}
+                    onChange={(e) => setPromoInput(e.target.value)}
+                    placeholder="Kode promo (KALABARU)"
+                    className="flex-1 px-3 py-2 border border-neutral-200 rounded-xl text-xs"
+                  />
+                  <button
+                    onClick={() => {
+                      if (promoInput.trim().toUpperCase() === 'KALABARU') {
+                        setPromoApplied(true);
+                      }
+                    }}
+                    className="px-4 py-2 bg-neutral-900 text-white text-xs font-semibold rounded-xl"
+                  >
+                    Pakai
+                  </button>
+                </div>
+
+                <input
+                  type="text"
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  placeholder="Nama penerima..."
+                  className="w-full px-3 py-2 border border-neutral-200 rounded-xl text-xs"
+                />
+                <input
+                  type="text"
+                  value={customerAddress}
+                  onChange={(e) => setCustomerAddress(e.target.value)}
+                  placeholder="Alamat lengkap pengiriman..."
+                  className="w-full px-3 py-2 border border-neutral-200 rounded-xl text-xs"
+                />
+
+                <div className="pt-2 space-y-1 text-xs">
+                  <div className="flex justify-between text-neutral-500">
+                    <span>Subtotal</span>
+                    <span>{formatRupiah(subtotal)}</span>
+                  </div>
+                  {promoApplied && (
+                    <div className="flex justify-between text-emerald-600 font-medium">
+                      <span>Diskon (10%)</span>
+                      <span>-{formatRupiah(discount)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between font-black text-base pt-1">
+                    <span>Total</span>
+                    <span>{formatRupiah(total)}</span>
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleCheckoutWhatsApp}
+                  className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-sm flex items-center justify-center gap-2 transition"
+                >
+                  <Phone className="w-4 h-4" /> Pesan via WhatsApp
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
-
-      <footer className="border-t border-neutral-200 bg-white py-8 text-center text-xs text-neutral-400">
-        <p>© 2026 KALA.STUDIOS. All rights reserved.</p>
-      </footer>
     </div>
   );
 }
