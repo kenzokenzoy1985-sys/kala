@@ -27,7 +27,7 @@ const WHATSAPP_NUMBER = '6281234567890'; // Ganti nomor WA lo (diawali 62)
 const ADMIN_PASSWORD = 'ADMINWS312'; // Ganti password rahasia halaman admin lo
 
 const SUPABASE_URL = 'https://pymfcglqwejqfixmhnlf.supabase.co';
-const SUPABASE_ANON_KEY = 'TEMPEL_PUBLISHABLE_KEY_SUPABASE_LO_DISINI';
+const SUPABASE_ANON_KEY = 'sb_publishable_QqUkadWoEnWcCZMhLxfhjA_NcFS8yr-';
 // ============================================================================
 
 const isSupabaseConfigured =
