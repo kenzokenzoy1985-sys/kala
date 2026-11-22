@@ -43,7 +43,6 @@ const SIZES: SizeKey[] = ['S', 'M', 'L', 'XL'];
 
 type StockMap = Record<SizeKey, number>;
 
-const DEFAULT_STOCK: StockMap = { S: 0, M: 0, L: 0, XL: 0 };
 
 interface Product {
   id: string;
