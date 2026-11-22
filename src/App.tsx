@@ -805,8 +805,8 @@ export default function App() {
   return (
     <div className="min-h-screen bg-white text-neutral-900 font-sans">
       <div className="bg-neutral-950 text-white text-[11px] tracking-widest uppercase py-2.5 px-4 text-center font-medium">
-        GUNAKAN KODE <span className="underline font-bold">KALABARU</span> UNTUK
-        DISKON 10% PESANAN PERTAMA
+        GUNAKAN KODE <span className="underline font-bold">OFFICIALWS</span> UNTUK
+        DISKON 5% PESANAN PERTAMA
       </div>
 
       <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-neutral-100">
