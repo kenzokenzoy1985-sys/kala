@@ -16,15 +16,16 @@ import {
   Upload,
   LogOut,
   Image as ImageIcon,
+  Save,
 } from 'lucide-react';
 
 // ============================================================================
-// PENGATURAN TOKO & SUPABASE (EDIT 4 BARIS INI)
+// PENGATURAN TOKO & SUPABASE
 // ============================================================================
 const STORE_NAME_FIRST = 'WS';
 const STORE_NAME_SECOND = 'STORE';
 const WHATSAPP_NUMBER = '6281234567890'; // Ganti nomor WA lo (diawali 62)
-const ADMIN_PASSWORD = 'ADMINWS312'; // Ganti password rahasia halaman admin lo
+const ADMIN_PASSWORD = 'ADMINWS312';
 
 const SUPABASE_URL = 'https://pymfcglqwejqfixmhnlf.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_QqUkadWoEnWcCZMhLxfhjA_NcFS8yr-';
@@ -37,6 +38,13 @@ const supabase = isSupabaseConfigured
   ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
   : null;
 
+type SizeKey = 'S' | 'M' | 'L' | 'XL';
+const SIZES: SizeKey[] = ['S', 'M', 'L', 'XL'];
+
+type StockMap = Record<SizeKey, number>;
+
+const DEFAULT_STOCK: StockMap = { S: 0, M: 0, L: 0, XL: 0 };
+
 interface Product {
   id: string;
   name: string;
@@ -47,10 +55,11 @@ interface Product {
   tag?: string;
   image: string;
   description: string;
+  stock: StockMap;
 }
 
 interface CartItem extends Product {
-  size: string;
+  size: SizeKey;
   quantity: number;
 }
 
@@ -66,8 +75,6 @@ const FILTER_CATEGORIES = [
   ...CATEGORY_OPTIONS,
 ];
 
-const SIZES = ['S', 'M', 'L', 'XL'];
-
 const FALLBACK_PRODUCTS: Product[] = [
   {
     id: 'demo-1',
@@ -81,6 +88,7 @@ const FALLBACK_PRODUCTS: Product[] = [
       'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800&auto=format&fit=crop&q=80',
     description:
       'Cotton Combed 16s Heavyweight 235 GSM. Potongan boxy modern, kerah rib tebal anti melar.',
+    stock: { S: 5, M: 8, L: 4, XL: 2 },
   },
 ];
 
@@ -90,6 +98,13 @@ const formatRupiah = (amount: number) =>
     currency: 'IDR',
     maximumFractionDigits: 0,
   }).format(amount);
+
+const normalizeStock = (raw: any): StockMap => ({
+  S: Number(raw?.S ?? 0),
+  M: Number(raw?.M ?? 0),
+  L: Number(raw?.L ?? 0),
+  XL: Number(raw?.XL ?? 0),
+});
 
 export default function App() {
   const [isAdminRoute, setIsAdminRoute] = useState<boolean>(
@@ -105,7 +120,7 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState<boolean>(false);
-  const [selectedSizes, setSelectedSizes] = useState<Record<string, string>>(
+  const [selectedSizes, setSelectedSizes] = useState<Record<string, SizeKey>>(
     {}
   );
   const [promoInput, setPromoInput] = useState<string>('');
@@ -113,6 +128,7 @@ export default function App() {
   const [customerName, setCustomerName] = useState<string>('');
   const [customerAddress, setCustomerAddress] = useState<string>('');
 
+  // Admin state
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState<boolean>(false);
   const [passwordInput, setPasswordInput] = useState<string>('');
   const [loginError, setLoginError] = useState<string>('');
@@ -124,8 +140,20 @@ export default function App() {
   const [newOriginalPrice, setNewOriginalPrice] = useState('');
   const [newTag, setNewTag] = useState('');
   const [newDescription, setNewDescription] = useState('');
+  const [newStock, setNewStock] = useState<StockMap>({
+    S: 5,
+    M: 10,
+    L: 10,
+    XL: 5,
+  });
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>('');
+
+  // State untuk edit stok produk yang sudah ada di admin
+  const [editingStocks, setEditingStocks] = useState<Record<string, StockMap>>(
+    {}
+  );
+  const [savingStockId, setSavingStockId] = useState<string | null>(null);
 
   useEffect(() => {
     const handleHashChange = () => {
@@ -163,8 +191,15 @@ export default function App() {
           tag: item.tag || undefined,
           image: item.image,
           description: item.description,
+          stock: normalizeStock(item.stock),
         }));
         setProducts(mapped);
+
+        const stockMap: Record<string, StockMap> = {};
+        mapped.forEach((p) => {
+          stockMap[p.id] = { ...p.stock };
+        });
+        setEditingStocks(stockMap);
       } else {
         setProducts([]);
       }
@@ -225,6 +260,7 @@ export default function App() {
           tag: newTag.trim() || null,
           image: urlData.publicUrl,
           description: newDescription,
+          stock: newStock,
         },
       ]);
 
@@ -235,14 +271,35 @@ export default function App() {
       setNewOriginalPrice('');
       setNewTag('');
       setNewDescription('');
+      setNewStock({ S: 5, M: 10, L: 10, XL: 5 });
       setImageFile(null);
       setImagePreview('');
       await fetchProducts();
-      alert('Produk berhasil ditambahkan ke toko!');
+      alert('Produk & stok ukuran berhasil ditambahkan!');
     } catch (err: any) {
       alert('Gagal upload produk: ' + err.message);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleUpdateStock = async (productId: string) => {
+    if (!supabase) return;
+    const updated = editingStocks[productId];
+    if (!updated) return;
+
+    setSavingStockId(productId);
+    const { error } = await supabase
+      .from('products')
+      .update({ stock: updated })
+      .eq('id', productId);
+
+    setSavingStockId(null);
+    if (error) {
+      alert('Gagal update stok: ' + error.message);
+    } else {
+      await fetchProducts();
+      alert('Stok berhasil diperbarui!');
     }
   };
 
@@ -270,13 +327,34 @@ export default function App() {
     });
   }, [products, selectedCategory, searchQuery]);
 
+  const getActiveSizeForProduct = (product: Product): SizeKey => {
+    const chosen = selectedSizes[product.id];
+    if (chosen && product.stock[chosen] > 0) return chosen;
+    const firstAvailable = SIZES.find((sz) => product.stock[sz] > 0);
+    return chosen || firstAvailable || 'M';
+  };
+
   const addToCart = (product: Product) => {
-    const size = selectedSizes[product.id] || 'M';
+    const size = getActiveSizeForProduct(product);
+    const availableStock = product.stock[size] ?? 0;
+
+    if (availableStock <= 0) {
+      alert(`Maaf, ukuran ${size} sedang habis!`);
+      return;
+    }
+
+    const existingInCart = cart.find(
+      (item) => item.id === product.id && item.size === size
+    );
+    const currentQty = existingInCart ? existingInCart.quantity : 0;
+
+    if (currentQty + 1 > availableStock) {
+      alert(`Stok ukuran ${size} cuma tersisa ${availableStock} pcs!`);
+      return;
+    }
+
     setCart((prev) => {
-      const existing = prev.find(
-        (item) => item.id === product.id && item.size === size
-      );
-      if (existing) {
+      if (existingInCart) {
         return prev.map((item) =>
           item.id === product.id && item.size === size
             ? { ...item, quantity: item.quantity + 1 }
@@ -288,14 +366,23 @@ export default function App() {
     setIsCartOpen(true);
   };
 
-  const updateQuantity = (id: string, size: string, delta: number) => {
+  const updateQuantity = (id: string, size: SizeKey, delta: number) => {
+    const targetProduct = products.find((p) => p.id === id);
+    const maxStock = targetProduct ? targetProduct.stock[size] ?? 99 : 99;
+
     setCart((prev) =>
       prev
-        .map((item) =>
-          item.id === id && item.size === size
-            ? { ...item, quantity: item.quantity + delta }
-            : item
-        )
+        .map((item) => {
+          if (item.id === id && item.size === size) {
+            const nextQty = item.quantity + delta;
+            if (nextQty > maxStock) {
+              alert(`Maksimal stok ukuran ${size} hanya ${maxStock} pcs.`);
+              return item;
+            }
+            return { ...item, quantity: nextQty };
+          }
+          return item;
+        })
         .filter((item) => item.quantity > 0)
     );
   };
@@ -308,8 +395,27 @@ export default function App() {
   const total = subtotal - discount;
   const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
 
-  const handleCheckoutWhatsApp = () => {
+  const handleCheckoutWhatsApp = async () => {
     if (cart.length === 0) return;
+
+    // Kurangi stok di Supabase otomatis saat checkout
+    if (supabase) {
+      for (const item of cart) {
+        const prod = products.find((p) => p.id === item.id);
+        if (prod) {
+          const updatedStock: StockMap = {
+            ...prod.stock,
+            [item.size]: Math.max(0, (prod.stock[item.size] ?? 0) - item.quantity),
+          };
+          await supabase
+            .from('products')
+            .update({ stock: updatedStock })
+            .eq('id', item.id);
+        }
+      }
+      await fetchProducts();
+    }
+
     const itemLines = cart
       .map(
         (item, idx) =>
@@ -331,6 +437,9 @@ export default function App() {
     window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${message}`, '_blank');
   };
 
+  // ==========================================================================
+  // HALAMAN ADMIN
+  // ==========================================================================
   if (isAdminRoute) {
     if (!isAdminLoggedIn) {
       return (
@@ -433,14 +542,6 @@ export default function App() {
         </header>
 
         <main className="max-w-4xl mx-auto px-4 pt-6 space-y-8">
-          {!isSupabaseConfigured && (
-            <div className="p-4 bg-amber-50 border border-amber-300 rounded-xl text-xs text-amber-900">
-              <strong>Perhatian:</strong> Kamu belum memasukkan{' '}
-              <code>SUPABASE_ANON_KEY</code> di bagian atas file{' '}
-              <code>src/App.tsx</code>.
-            </div>
-          )}
-
           <section className="bg-white border border-neutral-200 rounded-2xl p-5 sm:p-6 shadow-sm">
             <h2 className="font-bold text-base mb-4 flex items-center gap-2">
               <Plus className="w-4 h-4" /> Tambah Produk Baru
@@ -538,6 +639,38 @@ export default function App() {
                 </div>
               </div>
 
+              {/* INPUT STOK PER UKURAN */}
+              <div>
+                <label className="block text-xs font-medium text-neutral-700 mb-1.5">
+                  Stok Tersedia per Ukuran (Isi 0 jika ukuran tidak tersedia) *
+                </label>
+                <div className="grid grid-cols-4 gap-3">
+                  {SIZES.map((sz) => (
+                    <div
+                      key={sz}
+                      className="bg-neutral-50 border border-neutral-200 rounded-xl p-2.5 text-center"
+                    >
+                      <span className="block text-xs font-black text-neutral-700 mb-1">
+                        Size {sz}
+                      </span>
+                      <input
+                        type="number"
+                        min={0}
+                        required
+                        value={newStock[sz]}
+                        onChange={(e) =>
+                          setNewStock((prev) => ({
+                            ...prev,
+                            [sz]: Math.max(0, Number(e.target.value)),
+                          }))
+                        }
+                        className="w-full text-center font-bold text-sm px-2 py-1.5 bg-white border border-neutral-300 rounded-lg focus:outline-none focus:border-black"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               <div>
                 <label className="block text-xs font-medium text-neutral-700 mb-1">
                   Label / Tag (Opsional)
@@ -578,9 +711,10 @@ export default function App() {
             </form>
           </section>
 
+          {/* DAFTAR PRODUK & EDIT STOK */}
           <section className="bg-white border border-neutral-200 rounded-2xl p-5 sm:p-6 shadow-sm">
             <h2 className="font-bold text-base mb-4">
-              Daftar Produk Aktif ({products.length})
+              Daftar Produk & Kelola Stok ({products.length})
             </h2>
 
             {products.length === 0 ? (
@@ -588,36 +722,76 @@ export default function App() {
                 Belum ada produk di database. Silakan tambah produk di atas.
               </p>
             ) : (
-              <div className="divide-y divide-neutral-100">
-                {products.map((item) => (
-                  <div
-                    key={item.id}
-                    className="py-3 flex items-center justify-between gap-3"
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <img
-                        src={item.image}
-                        alt={item.name}
-                        className="w-12 h-14 object-cover rounded-lg bg-neutral-100 shrink-0"
-                      />
-                      <div className="min-w-0">
-                        <p className="font-semibold text-sm truncate">
-                          {item.name}
-                        </p>
-                        <p className="text-xs text-neutral-500">
-                          {item.categoryLabel} • {formatRupiah(item.price)}
-                        </p>
+              <div className="divide-y divide-neutral-200">
+                {products.map((item) => {
+                  const currentEdit = editingStocks[item.id] || item.stock;
+                  return (
+                    <div key={item.id} className="py-4 space-y-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <img
+                            src={item.image}
+                            alt={item.name}
+                            className="w-12 h-14 object-cover rounded-lg bg-neutral-100 shrink-0"
+                          />
+                          <div className="min-w-0">
+                            <p className="font-semibold text-sm truncate">
+                              {item.name}
+                            </p>
+                            <p className="text-xs text-neutral-500">
+                              {item.categoryLabel} • {formatRupiah(item.price)}
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleDeleteProduct(item.id, item.name)}
+                          className="p-2 text-neutral-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                          title="Hapus Produk"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      {/* Kontrol Stok Cepat per Produk */}
+                      <div className="flex flex-wrap items-center justify-between gap-2 bg-neutral-50 p-2.5 rounded-xl border border-neutral-100">
+                        <div className="flex items-center gap-2">
+                          {SIZES.map((sz) => (
+                            <div key={sz} className="flex items-center gap-1">
+                              <span className="text-[11px] font-bold text-neutral-500">
+                                {sz}:
+                              </span>
+                              <input
+                                type="number"
+                                min={0}
+                                value={currentEdit[sz]}
+                                onChange={(e) =>
+                                  setEditingStocks((prev) => ({
+                                    ...prev,
+                                    [item.id]: {
+                                      ...currentEdit,
+                                      [sz]: Math.max(0, Number(e.target.value)),
+                                    },
+                                  }))
+                                }
+                                className="w-12 text-center text-xs font-bold py-1 bg-white border border-neutral-300 rounded-md"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                        <button
+                          onClick={() => handleUpdateStock(item.id)}
+                          disabled={savingStockId === item.id}
+                          className="px-3 py-1.5 bg-neutral-900 text-white text-xs font-semibold rounded-lg hover:bg-neutral-700 flex items-center gap-1.5 disabled:opacity-50"
+                        >
+                          <Save className="w-3.5 h-3.5" />
+                          {savingStockId === item.id
+                            ? 'Menyimpan...'
+                            : 'Simpan Stok'}
+                        </button>
                       </div>
                     </div>
-                    <button
-                      onClick={() => handleDeleteProduct(item.id, item.name)}
-                      className="p-2 text-neutral-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
-                      title="Hapus Produk"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </section>
@@ -626,6 +800,9 @@ export default function App() {
     );
   }
 
+  // ==========================================================================
+  // HALAMAN TOKO (PELANGGAN)
+  // ==========================================================================
   return (
     <div className="min-h-screen bg-white text-neutral-900 font-sans">
       <div className="bg-neutral-950 text-white text-[11px] tracking-widest uppercase py-2.5 px-4 text-center font-medium">
@@ -719,7 +896,12 @@ export default function App() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
             {filteredProducts.map((product) => {
-              const activeSize = selectedSizes[product.id] || 'M';
+              const activeSize = getActiveSizeForProduct(product);
+              const activeStock = product.stock[activeSize] ?? 0;
+              const isAllSoldOut = SIZES.every(
+                (sz) => (product.stock[sz] ?? 0) <= 0
+              );
+
               return (
                 <div
                   key={product.id}
@@ -732,10 +914,16 @@ export default function App() {
                         alt={product.name}
                         className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
                       />
-                      {product.tag && (
-                        <span className="absolute top-3 left-3 bg-white/95 backdrop-blur px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase">
-                          {product.tag}
+                      {isAllSoldOut ? (
+                        <span className="absolute top-3 left-3 bg-neutral-900 text-white px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase">
+                          SOLD OUT
                         </span>
+                      ) : (
+                        product.tag && (
+                          <span className="absolute top-3 left-3 bg-white/95 backdrop-blur px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase">
+                            {product.tag}
+                          </span>
+                        )
                       )}
                     </div>
 
@@ -749,30 +937,51 @@ export default function App() {
                   </div>
 
                   <div className="mt-4 pt-4 border-t border-neutral-100">
-                    <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center justify-between mb-1.5">
                       <span className="text-[11px] text-neutral-400 font-medium">
                         Pilih Ukuran:
                       </span>
                       <div className="flex gap-1.5">
-                        {SIZES.map((sz) => (
-                          <button
-                            key={sz}
-                            onClick={() =>
-                              setSelectedSizes((prev) => ({
-                                ...prev,
-                                [product.id]: sz,
-                              }))
-                            }
-                            className={`w-7 h-7 rounded-lg text-xs font-bold transition ${
-                              activeSize === sz
-                                ? 'bg-black text-white'
-                                : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
-                            }`}
-                          >
-                            {sz}
-                          </button>
-                        ))}
+                        {SIZES.map((sz) => {
+                          const qty = product.stock[sz] ?? 0;
+                          const outOfStock = qty <= 0;
+                          return (
+                            <button
+                              key={sz}
+                              disabled={outOfStock}
+                              onClick={() =>
+                                setSelectedSizes((prev) => ({
+                                  ...prev,
+                                  [product.id]: sz,
+                                }))
+                              }
+                              className={`w-7 h-7 rounded-lg text-xs font-bold transition ${
+                                outOfStock
+                                  ? 'bg-neutral-50 text-neutral-300 line-through cursor-not-allowed'
+                                  : activeSize === sz
+                                  ? 'bg-black text-white'
+                                  : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                              }`}
+                            >
+                              {sz}
+                            </button>
+                          );
+                        })}
                       </div>
+                    </div>
+
+                    <div className="text-right mb-3">
+                      <span
+                        className={`text-[11px] font-medium ${
+                          activeStock > 0
+                            ? 'text-neutral-500'
+                            : 'text-red-500 font-semibold'
+                        }`}
+                      >
+                        {activeStock > 0
+                          ? `Sisa stok (${activeSize}): ${activeStock} pcs`
+                          : 'Stok habis'}
+                      </span>
                     </div>
 
                     <div className="flex items-center justify-between gap-3">
@@ -787,10 +996,14 @@ export default function App() {
                         )}
                       </div>
                       <button
+                        disabled={isAllSoldOut || activeStock <= 0}
                         onClick={() => addToCart(product)}
-                        className="px-4 py-2.5 bg-black text-white text-xs font-semibold rounded-full hover:bg-neutral-800 transition flex items-center gap-1.5"
+                        className="px-4 py-2.5 bg-black text-white text-xs font-semibold rounded-full hover:bg-neutral-800 transition flex items-center gap-1.5 disabled:bg-neutral-200 disabled:text-neutral-400 disabled:cursor-not-allowed"
                       >
-                        <Plus className="w-3.5 h-3.5" /> Keranjang
+                        <Plus className="w-3.5 h-3.5" />
+                        {isAllSoldOut || activeStock <= 0
+                          ? 'Habis'
+                          : 'Keranjang'}
                       </button>
                     </div>
                   </div>
