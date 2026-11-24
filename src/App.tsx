@@ -201,8 +201,10 @@ export default function App() {
     fetchProducts();
   }, []);
 
-  const [draggedPhotoIdx, setDraggedPhotoIdx] = useState<number | null>(null);
-  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
+  const [draggingIdx, setDraggingIdx] = useState<number | null>(null);
+  const [dragOffsetX, setDragOffsetX] = useState<number>(0);
+  const dragStartXRef = React.useRef<number>(0);
+  const currentDragIdxRef = React.useRef<number | null>(null);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -587,38 +589,53 @@ export default function App() {
                         {imagePreviews.map((src, idx) => (
                           <div
                             key={idx}
-                            draggable
-                            onDragStart={(e) => {
-                              e.dataTransfer.effectAllowed = "move";
-                              e.dataTransfer.setData("text/plain", String(idx));
-                              requestAnimationFrame(() => setDraggedPhotoIdx(idx));
-                            }}
-                            onDragEnter={(e) => {
+                            onPointerDown={(e) => {
+                              if ((e.target as HTMLElement).closest("button")) return;
                               e.preventDefault();
-                              if (dragOverIdx !== idx) setDragOverIdx(idx);
+                              (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+                              dragStartXRef.current = e.clientX;
+                              currentDragIdxRef.current = idx;
+                              setDraggingIdx(idx);
+                              setDragOffsetX(0);
                             }}
-                            onDragOver={(e) => {
-                              e.preventDefault();
-                              e.dataTransfer.dropEffect = "move";
-                            }}
-                            onDrop={(e) => {
-                              e.preventDefault();
-                              const rawFrom = e.dataTransfer.getData("text/plain");
-                              const fromIdx = draggedPhotoIdx !== null ? draggedPhotoIdx : Number(rawFrom);
-                              if (!Number.isNaN(fromIdx)) {
-                                movePhoto(fromIdx, idx);
+                            onPointerMove={(e) => {
+                              const cur = currentDragIdxRef.current;
+                              if (cur === null) return;
+                              const deltaX = e.clientX - dragStartXRef.current;
+                              const slotWidth = 124;
+                              if (deltaX > slotWidth / 2 && cur < imagePreviews.length - 1) {
+                                movePhoto(cur, cur + 1);
+                                dragStartXRef.current += slotWidth;
+                                currentDragIdxRef.current = cur + 1;
+                                setDraggingIdx(cur + 1);
+                                setDragOffsetX(e.clientX - dragStartXRef.current);
+                              } else if (deltaX < -slotWidth / 2 && cur > 0) {
+                                movePhoto(cur, cur - 1);
+                                dragStartXRef.current -= slotWidth;
+                                currentDragIdxRef.current = cur - 1;
+                                setDraggingIdx(cur - 1);
+                                setDragOffsetX(e.clientX - dragStartXRef.current);
+                              } else {
+                                setDragOffsetX(deltaX);
                               }
-                              setDraggedPhotoIdx(null);
-                              setDragOverIdx(null);
                             }}
-                            onDragEnd={() => {
-                              setDraggedPhotoIdx(null);
-                              setDragOverIdx(null);
+                            onPointerUp={() => {
+                              currentDragIdxRef.current = null;
+                              setDraggingIdx(null);
+                              setDragOffsetX(0);
                             }}
-                            className={`relative shrink-0 cursor-grab active:cursor-grabbing rounded-lg transition ${
-                              draggedPhotoIdx === idx ? "opacity-40 scale-95" : ""
-                            } ${
-                              dragOverIdx === idx && draggedPhotoIdx !== idx ? "ring-2 ring-black scale-105" : ""
+                            onPointerCancel={() => {
+                              currentDragIdxRef.current = null;
+                              setDraggingIdx(null);
+                              setDragOffsetX(0);
+                            }}
+                            style={
+                              draggingIdx === idx
+                                ? { transform: `translateX(${dragOffsetX}px) scale(1.04)`, zIndex: 30 }
+                                : undefined
+                            }
+                            className={`relative shrink-0 touch-none select-none cursor-grab active:cursor-grabbing rounded-lg ${
+                              draggingIdx === idx ? "shadow-xl ring-2 ring-black" : "transition-transform"
                             }`}
                           >
                             <img
@@ -627,9 +644,20 @@ export default function App() {
                               draggable={false}
                               className="h-36 w-28 object-cover rounded-lg border border-neutral-200 pointer-events-none select-none"
                             />
-                            <span className="absolute top-1.5 left-1.5 bg-black/75 text-white text-[10px] font-bold px-2 py-0.5 rounded-md pointer-events-none">
-                              {idx === 0 ? "Utama" : `Slide ${idx + 1}`}
-                            </span>
+                            {idx === 0 ? (
+                              <span className="absolute top-1.5 left-1.5 bg-black text-white text-[10px] font-bold px-2 py-0.5 rounded-md pointer-events-none">
+                                Utama
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => movePhoto(idx, 0)}
+                                title="Jadikan foto utama"
+                                className="absolute top-1.5 left-1.5 bg-black/75 hover:bg-black text-white text-[10px] font-bold px-2 py-0.5 rounded-md"
+                              >
+                                Set Utama
+                              </button>
+                            )}
                             <button
                               type="button"
                               onClick={() => removePhoto(idx)}
