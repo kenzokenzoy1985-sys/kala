@@ -29,7 +29,7 @@ import {
 
 const STORE_NAME_FIRST = 'WS';
 const STORE_NAME_SECOND = 'STORE';
-const WHATSAPP_NUMBER = '6281234567890';
+const WHATSAPP_NUMBER = '6282321942197';
 const ADMIN_PASSWORD = 'ADMINWS312';
 
 const SUPABASE_URL = 'https://pymfcglqwejqfixmhnlf.supabase.co';
@@ -1278,7 +1278,7 @@ export default function App() {
                     type="text"
                     value={promoInput}
                     onChange={(e) => setPromoInput(e.target.value)}
-                    placeholder="Kode promo (KALABARU)"
+                    placeholder="Kode promo"
                     className="flex-1 px-3 py-2 border border-neutral-200 rounded-xl text-xs"
                   />
                   <button
