@@ -201,11 +201,38 @@ export default function App() {
     fetchProducts();
   }, []);
 
+  const [draggedPhotoIdx, setDraggedPhotoIdx] = useState<number | null>(null);
+
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
-    setImageFiles(files);
-    setImagePreviews(files.map((file) => URL.createObjectURL(file)));
+    setImageFiles((prev) => [...prev, ...files]);
+    setImagePreviews((prev) => [
+      ...prev,
+      ...files.map((file) => URL.createObjectURL(file)),
+    ]);
+    e.target.value = "";
+  };
+
+  const movePhoto = (fromIdx: number, toIdx: number) => {
+    if (toIdx < 0 || toIdx >= imageFiles.length || fromIdx === toIdx) return;
+    setImageFiles((prev) => {
+      const next = [...prev];
+      const [moved] = next.splice(fromIdx, 1);
+      next.splice(toIdx, 0, moved);
+      return next;
+    });
+    setImagePreviews((prev) => {
+      const next = [...prev];
+      const [moved] = next.splice(fromIdx, 1);
+      next.splice(toIdx, 0, moved);
+      return next;
+    });
+  };
+
+  const removePhoto = (idx: number) => {
+    setImageFiles((prev) => prev.filter((_, i) => i !== idx));
+    setImagePreviews((prev) => prev.filter((_, i) => i !== idx));
   };
 
   const handleAddProduct = async (e: React.FormEvent) => {
@@ -552,30 +579,80 @@ export default function App() {
                 <label className="block text-xs font-medium text-neutral-700 mb-1.5">
                   Foto Produk (Bisa pilih lebih dari 1 foto buat slide) *
                 </label>
-                <label className="flex flex-col items-center justify-center border-2 border-dashed border-neutral-300 rounded-xl p-4 cursor-pointer hover:border-black transition bg-neutral-50">
+                <div className="flex flex-col items-center justify-center border-2 border-dashed border-neutral-300 rounded-xl p-4 hover:border-black transition bg-neutral-50">
                   {imagePreviews.length > 0 ? (
-                    <div className="w-full space-y-2">
+                    <div className="w-full space-y-2.5">
                       <div className="flex gap-3 overflow-x-auto pb-1 justify-center">
                         {imagePreviews.map((src, idx) => (
-                          <div key={idx} className="relative shrink-0">
+                          <div
+                            key={idx}
+                            draggable
+                            onDragStart={(e) => {
+                              e.dataTransfer.effectAllowed = "move";
+                              setDraggedPhotoIdx(idx);
+                            }}
+                            onDragOver={(e) => e.preventDefault()}
+                            onDrop={(e) => {
+                              e.preventDefault();
+                              if (draggedPhotoIdx !== null) {
+                                movePhoto(draggedPhotoIdx, idx);
+                                setDraggedPhotoIdx(null);
+                              }
+                            }}
+                            onDragEnd={() => setDraggedPhotoIdx(null)}
+                            className={`relative shrink-0 cursor-grab active:cursor-grabbing transition ${draggedPhotoIdx === idx ? "opacity-40 scale-95" : ""}`}
+                          >
                             <img
                               src={src}
                               alt={`Preview ${idx + 1}`}
-                              className="h-36 w-28 object-cover rounded-lg border border-neutral-200"
+                              draggable={false}
+                              className="h-36 w-28 object-cover rounded-lg border border-neutral-200 pointer-events-none select-none"
                             />
                             <span className="absolute top-1.5 left-1.5 bg-black/75 text-white text-[10px] font-bold px-2 py-0.5 rounded-md">
-                              {idx === 0 ? 'Utama' : `Slide ${idx + 1}`}
+                              {idx === 0 ? "Utama" : `Slide ${idx + 1}`}
                             </span>
+                            <button
+                              type="button"
+                              onClick={() => removePhoto(idx)}
+                              title="Hapus foto"
+                              className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-red-600 text-white text-xs font-bold flex items-center justify-center hover:bg-red-700"
+                            >
+                              ×
+                            </button>
+                            <div className="absolute bottom-1.5 inset-x-1.5 flex justify-between">
+                              <button
+                                type="button"
+                                onClick={() => movePhoto(idx, idx - 1)}
+                                disabled={idx === 0}
+                                className="px-1.5 py-0.5 rounded bg-black/70 text-white text-[10px] disabled:opacity-25"
+                              >
+                                ←
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => movePhoto(idx, idx + 1)}
+                                disabled={idx === imagePreviews.length - 1}
+                                className="px-1.5 py-0.5 rounded bg-black/70 text-white text-[10px] disabled:opacity-25"
+                              >
+                                →
+                              </button>
+                            </div>
                           </div>
                         ))}
+                        <label
+                          htmlFor="product-photo-input"
+                          className="h-36 w-28 shrink-0 rounded-lg border-2 border-dashed border-neutral-300 hover:border-black flex flex-col items-center justify-center cursor-pointer text-neutral-500 hover:text-black transition bg-white"
+                        >
+                          <span className="text-xl font-semibold leading-none">+</span>
+                          <span className="text-[11px] font-medium mt-1">Tambah Foto</span>
+                        </label>
                       </div>
                       <p className="text-[11px] text-center text-neutral-500">
-                        {imagePreviews.length} foto dipilih (klik lagi untuk
-                        ganti)
+                        {imagePreviews.length} foto dipilih • Geser (drag) foto untuk atur urutan slide
                       </p>
                     </div>
                   ) : (
-                    <div className="text-center py-4">
+                    <label htmlFor="product-photo-input" className="w-full text-center py-4 cursor-pointer">
                       <ImageIcon className="w-8 h-8 text-neutral-400 mx-auto mb-2" />
                       <p className="text-xs font-medium text-neutral-700">
                         Klik untuk pilih 1 atau banyak foto baju
@@ -583,16 +660,17 @@ export default function App() {
                       <p className="text-[11px] text-neutral-400 mt-0.5">
                         JPG, PNG, atau WEBP (Foto pertama jadi sampul utama)
                       </p>
-                    </div>
+                    </label>
                   )}
                   <input
+                    id="product-photo-input"
                     type="file"
                     accept="image/*"
                     multiple
                     onChange={handleFileSelect}
                     className="hidden"
                   />
-                </label>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
