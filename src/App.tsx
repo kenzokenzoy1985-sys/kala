@@ -117,10 +117,11 @@ export default function App() {
   const [promoInput, setPromoInput] = useState<string>('');
   const [promoApplied, setPromoApplied] = useState<boolean>(false);
   useEffect(() => {
-    if (promoInput.trim().toUpperCase() === 'OFFICIALWS') {
-      setPromoApplied(true);
+    if (!isCartOpen) {
+      setPromoInput('');
+      setPromoApplied(false);
     }
-  }, [promoInput]);
+  }, [isCartOpen]);
   const [customerName, setCustomerName] = useState<string>('');
   const [customerAddress, setCustomerAddress] = useState<string>('');
 
@@ -473,6 +474,8 @@ export default function App() {
       `Alamat Pengiriman: ${customerAddress || '-'}`;
 
     window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${message}`, '_blank');
+  setPromoInput('');
+  setPromoApplied(false);
   };
 
   if (isAdminRoute) {
@@ -1281,16 +1284,24 @@ export default function App() {
                 <div className="flex gap-2">
                   <input
                     type="text"
+                    autoComplete="off"
+                    name="promo_code_entry"
                     value={promoInput}
-                    onChange={(e) => setPromoInput(e.target.value)}
+                    onChange={(e) => {
+                      setPromoInput(e.target.value);
+                      if (promoApplied) setPromoApplied(false);
+                    }}
                     placeholder="Kode promo"
                     className="flex-1 px-3 py-2 border border-neutral-200 rounded-xl text-xs"
                   />
                   <button
                     onClick={() => {
                       if (promoInput.trim().toUpperCase() === 'OFFICIALWS') {
-                        setPromoApplied(true);
-                      }
+                      setPromoApplied(true);
+                    } else {
+                      setPromoApplied(false);
+                      if (promoInput.trim()) alert('Kode promo tidak valid!');
+                    }
                     }}
                     className="px-4 py-2 bg-neutral-900 text-white text-xs font-semibold rounded-xl"
                   >
