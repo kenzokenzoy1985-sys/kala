@@ -17,19 +17,23 @@ import {
   LogOut,
   Image as ImageIcon,
   Save,
+  Layers,
 } from 'lucide-react';
+import {
+  ProductDetailModal,
+  type Product,
+  type SizeKey,
+  SIZES,
+  type StockMap,
+} from './components/ProductDetailModal';
 
-// ============================================================================
-// PENGATURAN TOKO & SUPABASE
-// ============================================================================
 const STORE_NAME_FIRST = 'WS';
 const STORE_NAME_SECOND = 'STORE';
-const WHATSAPP_NUMBER = '6281234567890'; // Ganti nomor WA lo (diawali 62)
+const WHATSAPP_NUMBER = '6281234567890';
 const ADMIN_PASSWORD = 'ADMINWS312';
 
 const SUPABASE_URL = 'https://pymfcglqwejqfixmhnlf.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_QqUkadWoEnWcCZMhLxfhjA_NcFS8yr-';
-// ============================================================================
 
 const isSupabaseConfigured =
   SUPABASE_URL.startsWith('http') && SUPABASE_ANON_KEY.length > 20;
@@ -37,25 +41,6 @@ const isSupabaseConfigured =
 const supabase = isSupabaseConfigured
   ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
   : null;
-
-type SizeKey = 'S' | 'M' | 'L' | 'XL';
-const SIZES: SizeKey[] = ['S', 'M', 'L', 'XL'];
-
-type StockMap = Record<SizeKey, number>;
-
-
-interface Product {
-  id: string;
-  name: string;
-  category: string;
-  categoryLabel: string;
-  price: number;
-  originalPrice?: number;
-  tag?: string;
-  image: string;
-  description: string;
-  stock: StockMap;
-}
 
 interface CartItem extends Product {
   size: SizeKey;
@@ -85,6 +70,10 @@ const FALLBACK_PRODUCTS: Product[] = [
     tag: 'BESTSELLER',
     image:
       'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800&auto=format&fit=crop&q=80',
+    images: [
+      'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=800&auto=format&fit=crop&q=80',
+    ],
     description:
       'Cotton Combed 16s Heavyweight 235 GSM. Potongan boxy modern, kerah rib tebal anti melar.',
     stock: { S: 5, M: 8, L: 4, XL: 2 },
@@ -122,12 +111,14 @@ export default function App() {
   const [selectedSizes, setSelectedSizes] = useState<Record<string, SizeKey>>(
     {}
   );
+  const [selectedProductModal, setSelectedProductModal] =
+    useState<Product | null>(null);
+
   const [promoInput, setPromoInput] = useState<string>('');
   const [promoApplied, setPromoApplied] = useState<boolean>(false);
   const [customerName, setCustomerName] = useState<string>('');
   const [customerAddress, setCustomerAddress] = useState<string>('');
 
-  // Admin state
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState<boolean>(false);
   const [passwordInput, setPasswordInput] = useState<string>('');
   const [loginError, setLoginError] = useState<string>('');
@@ -145,10 +136,9 @@ export default function App() {
     L: 10,
     XL: 5,
   });
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string>('');
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
 
-  // State untuk edit stok produk yang sudah ada di admin
   const [editingStocks, setEditingStocks] = useState<Record<string, StockMap>>(
     {}
   );
@@ -189,7 +179,8 @@ export default function App() {
             : undefined,
           tag: item.tag || undefined,
           image: item.image,
-          description: item.description,
+          images: Array.isArray(item.images) ? item.images : [item.image],
+          description: item.description || '',
           stock: normalizeStock(item.stock),
         }));
         setProducts(mapped);
@@ -211,10 +202,10 @@ export default function App() {
   }, []);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setImageFile(file);
-    setImagePreview(URL.createObjectURL(file));
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    setImageFiles(files);
+    setImagePreviews(files.map((file) => URL.createObjectURL(file)));
   };
 
   const handleAddProduct = async (e: React.FormEvent) => {
@@ -223,27 +214,33 @@ export default function App() {
       alert('Publishable Key Supabase belum diisi di dalam file App.tsx!');
       return;
     }
-    if (!imageFile) {
-      alert('Pilih foto produk terlebih dahulu!');
+    if (imageFiles.length === 0) {
+      alert('Pilih minimal 1 foto produk terlebih dahulu!');
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const fileExt = imageFile.name.split('.').pop();
-      const fileName = `${Date.now()}-${Math.random()
-        .toString(36)
-        .substring(2)}.${fileExt}`;
+      const uploadedUrls: string[] = [];
 
-      const { error: uploadError } = await supabase.storage
-        .from('product-images')
-        .upload(fileName, imageFile);
+      for (const file of imageFiles) {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Date.now()}-${Math.random()
+          .toString(36)
+          .substring(2)}.${fileExt}`;
 
-      if (uploadError) throw uploadError;
+        const { error: uploadError } = await supabase.storage
+          .from('product-images')
+          .upload(fileName, file);
 
-      const { data: urlData } = supabase.storage
-        .from('product-images')
-        .getPublicUrl(fileName);
+        if (uploadError) throw uploadError;
+
+        const { data: urlData } = supabase.storage
+          .from('product-images')
+          .getPublicUrl(fileName);
+
+        uploadedUrls.push(urlData.publicUrl);
+      }
 
       const categoryObj =
         CATEGORY_OPTIONS.find((c) => c.key === newCategory) ||
@@ -257,7 +254,8 @@ export default function App() {
           price: Number(newPrice),
           original_price: newOriginalPrice ? Number(newOriginalPrice) : null,
           tag: newTag.trim() || null,
-          image: urlData.publicUrl,
+          image: uploadedUrls[0],
+          images: uploadedUrls,
           description: newDescription,
           stock: newStock,
         },
@@ -271,10 +269,12 @@ export default function App() {
       setNewTag('');
       setNewDescription('');
       setNewStock({ S: 5, M: 10, L: 10, XL: 5 });
-      setImageFile(null);
-      setImagePreview('');
+      setImageFiles([]);
+      setImagePreviews([]);
       await fetchProducts();
-      alert('Produk & stok ukuran berhasil ditambahkan!');
+      alert(
+        `Produk & ${uploadedUrls.length} foto slide berhasil ditambahkan!`
+      );
     } catch (err: any) {
       alert('Gagal upload produk: ' + err.message);
     } finally {
@@ -333,8 +333,8 @@ export default function App() {
     return chosen || firstAvailable || 'M';
   };
 
-  const addToCart = (product: Product) => {
-    const size = getActiveSizeForProduct(product);
+  const addToCart = (product: Product, customSize?: SizeKey) => {
+    const size = customSize || getActiveSizeForProduct(product);
     const availableStock = product.stock[size] ?? 0;
 
     if (availableStock <= 0) {
@@ -397,14 +397,16 @@ export default function App() {
   const handleCheckoutWhatsApp = async () => {
     if (cart.length === 0) return;
 
-    // Kurangi stok di Supabase otomatis saat checkout
     if (supabase) {
       for (const item of cart) {
         const prod = products.find((p) => p.id === item.id);
         if (prod) {
           const updatedStock: StockMap = {
             ...prod.stock,
-            [item.size]: Math.max(0, (prod.stock[item.size] ?? 0) - item.quantity),
+            [item.size]: Math.max(
+              0,
+              (prod.stock[item.size] ?? 0) - item.quantity
+            ),
           };
           await supabase
             .from('products')
@@ -428,7 +430,9 @@ export default function App() {
       `Halo Admin ${STORE_NAME_FIRST} ${STORE_NAME_SECOND}! Saya mau pesan:%0A%0A` +
       `${itemLines}%0A%0A` +
       `Subtotal: ${formatRupiah(subtotal)}%0A` +
-      (promoApplied ? `Diskon Promo (10%): -${formatRupiah(discount)}%0A` : '') +
+      (promoApplied
+        ? `Diskon Promo (10%): -${formatRupiah(discount)}%0A`
+        : '') +
       `*Total Bayar: ${formatRupiah(total)}*%0A%0A` +
       `Nama: ${customerName || '-'}%0A` +
       `Alamat Pengiriman: ${customerAddress || '-'}`;
@@ -436,9 +440,6 @@ export default function App() {
     window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${message}`, '_blank');
   };
 
-  // ==========================================================================
-  // HALAMAN ADMIN
-  // ==========================================================================
   if (isAdminRoute) {
     if (!isAdminLoggedIn) {
       return (
@@ -549,29 +550,45 @@ export default function App() {
             <form onSubmit={handleAddProduct} className="space-y-4">
               <div>
                 <label className="block text-xs font-medium text-neutral-700 mb-1.5">
-                  Foto Produk (Pilih dari Galeri) *
+                  Foto Produk (Bisa pilih lebih dari 1 foto buat slide) *
                 </label>
                 <label className="flex flex-col items-center justify-center border-2 border-dashed border-neutral-300 rounded-xl p-4 cursor-pointer hover:border-black transition bg-neutral-50">
-                  {imagePreview ? (
-                    <img
-                      src={imagePreview}
-                      alt="Preview"
-                      className="h-44 object-contain rounded-lg"
-                    />
+                  {imagePreviews.length > 0 ? (
+                    <div className="w-full space-y-2">
+                      <div className="flex gap-3 overflow-x-auto pb-1 justify-center">
+                        {imagePreviews.map((src, idx) => (
+                          <div key={idx} className="relative shrink-0">
+                            <img
+                              src={src}
+                              alt={`Preview ${idx + 1}`}
+                              className="h-36 w-28 object-cover rounded-lg border border-neutral-200"
+                            />
+                            <span className="absolute top-1.5 left-1.5 bg-black/75 text-white text-[10px] font-bold px-2 py-0.5 rounded-md">
+                              {idx === 0 ? 'Utama' : `Slide ${idx + 1}`}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-[11px] text-center text-neutral-500">
+                        {imagePreviews.length} foto dipilih (klik lagi untuk
+                        ganti)
+                      </p>
+                    </div>
                   ) : (
                     <div className="text-center py-4">
                       <ImageIcon className="w-8 h-8 text-neutral-400 mx-auto mb-2" />
                       <p className="text-xs font-medium text-neutral-700">
-                        Klik untuk pilih foto baju
+                        Klik untuk pilih 1 atau banyak foto baju
                       </p>
                       <p className="text-[11px] text-neutral-400 mt-0.5">
-                        JPG, PNG, atau WEBP
+                        JPG, PNG, atau WEBP (Foto pertama jadi sampul utama)
                       </p>
                     </div>
                   )}
                   <input
                     type="file"
                     accept="image/*"
+                    multiple
                     onChange={handleFileSelect}
                     className="hidden"
                   />
@@ -638,7 +655,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* INPUT STOK PER UKURAN */}
               <div>
                 <label className="block text-xs font-medium text-neutral-700 mb-1.5">
                   Stok Tersedia per Ukuran (Isi 0 jika ukuran tidak tersedia) *
@@ -689,7 +705,7 @@ export default function App() {
                 </label>
                 <textarea
                   required
-                  rows={3}
+                  rows={4}
                   value={newDescription}
                   onChange={(e) => setNewDescription(e.target.value)}
                   placeholder="Contoh: Cotton Combed 16s 235 GSM, cutting boxy..."
@@ -704,13 +720,12 @@ export default function App() {
               >
                 <Upload className="w-4 h-4" />
                 {isSubmitting
-                  ? 'Sedang Mengupload Foto...'
+                  ? `Sedang Mengupload ${imageFiles.length} Foto...`
                   : 'Upload & Tampilkan di Toko'}
               </button>
             </form>
           </section>
 
-          {/* DAFTAR PRODUK & EDIT STOK */}
           <section className="bg-white border border-neutral-200 rounded-2xl p-5 sm:p-6 shadow-sm">
             <h2 className="font-bold text-base mb-4">
               Daftar Produk & Kelola Stok ({products.length})
@@ -739,6 +754,9 @@ export default function App() {
                             </p>
                             <p className="text-xs text-neutral-500">
                               {item.categoryLabel} • {formatRupiah(item.price)}
+                              {item.images && item.images.length > 1
+                                ? ` • ${item.images.length} slide`
+                                : ''}
                             </p>
                           </div>
                         </div>
@@ -751,7 +769,6 @@ export default function App() {
                         </button>
                       </div>
 
-                      {/* Kontrol Stok Cepat per Produk */}
                       <div className="flex flex-wrap items-center justify-between gap-2 bg-neutral-50 p-2.5 rounded-xl border border-neutral-100">
                         <div className="flex items-center gap-2">
                           {SIZES.map((sz) => (
@@ -799,9 +816,6 @@ export default function App() {
     );
   }
 
-  // ==========================================================================
-  // HALAMAN TOKO (PELANGGAN)
-  // ==========================================================================
   return (
     <div className="min-h-screen bg-white text-neutral-900 font-sans">
       <div className="bg-neutral-950 text-white text-[11px] tracking-widest uppercase py-2.5 px-4 text-center font-medium">
@@ -900,13 +914,17 @@ export default function App() {
               const isAllSoldOut = SIZES.every(
                 (sz) => (product.stock[sz] ?? 0) <= 0
               );
+              const slideCount = product.images?.length || 1;
 
               return (
                 <div
                   key={product.id}
                   className="group flex flex-col justify-between bg-white"
                 >
-                  <div>
+                  <div
+                    onClick={() => setSelectedProductModal(product)}
+                    className="cursor-pointer"
+                  >
                     <div className="relative aspect-[4/5] bg-neutral-100 rounded-2xl overflow-hidden mb-4">
                       <img
                         src={product.image}
@@ -924,12 +942,20 @@ export default function App() {
                           </span>
                         )
                       )}
+
+                      {slideCount > 1 && (
+                        <span className="absolute bottom-3 right-3 bg-black/65 text-white backdrop-blur px-2.5 py-1 rounded-full text-[10px] font-semibold flex items-center gap-1">
+                          <Layers className="w-3 h-3" /> {slideCount} Foto
+                        </span>
+                      )}
                     </div>
 
                     <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
                       {product.categoryLabel}
                     </p>
-                    <h3 className="text-lg font-bold mt-0.5">{product.name}</h3>
+                    <h3 className="text-lg font-bold mt-0.5 group-hover:underline">
+                      {product.name}
+                    </h3>
                     <p className="text-xs text-neutral-500 mt-1 line-clamp-2 leading-relaxed">
                       {product.description}
                     </p>
@@ -1045,8 +1071,15 @@ export default function App() {
         </p>
       </footer>
 
+      <ProductDetailModal
+        product={selectedProductModal}
+        onClose={() => setSelectedProductModal(null)}
+        onAddToCart={(product, size) => addToCart(product, size)}
+        formatRupiah={formatRupiah}
+      />
+
       {isCartOpen && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-xs">
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-sm">
           <div className="w-full max-w-md bg-white h-full flex flex-col justify-between p-6 overflow-y-auto">
             <div>
               <div className="flex items-center justify-between pb-4 border-b border-neutral-100">
