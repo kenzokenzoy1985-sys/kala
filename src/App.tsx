@@ -116,6 +116,11 @@ export default function App() {
 
   const [promoInput, setPromoInput] = useState<string>('');
   const [promoApplied, setPromoApplied] = useState<boolean>(false);
+  useEffect(() => {
+    if (promoInput.trim().toUpperCase() === 'OFFICIALWS') {
+      setPromoApplied(true);
+    }
+  }, [promoInput]);
   const [customerName, setCustomerName] = useState<string>('');
   const [customerAddress, setCustomerAddress] = useState<string>('');
 
@@ -420,7 +425,7 @@ export default function App() {
     (sum, item) => sum + item.price * item.quantity,
     0
   );
-  const discount = promoApplied ? Math.round(subtotal * 0.1) : 0;
+  const discount = promoApplied ? Math.round(subtotal * 0.05) : 0;
   const total = subtotal - discount;
   const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
 
@@ -461,7 +466,7 @@ export default function App() {
       `${itemLines}%0A%0A` +
       `Subtotal: ${formatRupiah(subtotal)}%0A` +
       (promoApplied
-        ? `Diskon Promo (10%): -${formatRupiah(discount)}%0A`
+        ? `Diskon Promo OFFICIALWS (5%): -${formatRupiah(discount)}%0A`
         : '') +
       `*Total Bayar: ${formatRupiah(total)}*%0A%0A` +
       `Nama: ${customerName || '-'}%0A` +
@@ -1283,7 +1288,7 @@ export default function App() {
                   />
                   <button
                     onClick={() => {
-                      if (promoInput.trim().toUpperCase() === 'KALABARU') {
+                      if (promoInput.trim().toUpperCase() === 'OFFICIALWS') {
                         setPromoApplied(true);
                       }
                     }}
@@ -1315,7 +1320,7 @@ export default function App() {
                   </div>
                   {promoApplied && (
                     <div className="flex justify-between text-emerald-600 font-medium">
-                      <span>Diskon (10%)</span>
+                      <span>Diskon OFFICIALWS (5%)</span>
                       <span>-{formatRupiah(discount)}</span>
                     </div>
                   )}
