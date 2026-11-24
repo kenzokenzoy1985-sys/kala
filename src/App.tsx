@@ -202,6 +202,7 @@ export default function App() {
   }, []);
 
   const [draggedPhotoIdx, setDraggedPhotoIdx] = useState<number | null>(null);
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -589,18 +590,36 @@ export default function App() {
                             draggable
                             onDragStart={(e) => {
                               e.dataTransfer.effectAllowed = "move";
-                              setDraggedPhotoIdx(idx);
+                              e.dataTransfer.setData("text/plain", String(idx));
+                              requestAnimationFrame(() => setDraggedPhotoIdx(idx));
                             }}
-                            onDragOver={(e) => e.preventDefault()}
+                            onDragEnter={(e) => {
+                              e.preventDefault();
+                              if (dragOverIdx !== idx) setDragOverIdx(idx);
+                            }}
+                            onDragOver={(e) => {
+                              e.preventDefault();
+                              e.dataTransfer.dropEffect = "move";
+                            }}
                             onDrop={(e) => {
                               e.preventDefault();
-                              if (draggedPhotoIdx !== null) {
-                                movePhoto(draggedPhotoIdx, idx);
-                                setDraggedPhotoIdx(null);
+                              const rawFrom = e.dataTransfer.getData("text/plain");
+                              const fromIdx = draggedPhotoIdx !== null ? draggedPhotoIdx : Number(rawFrom);
+                              if (!Number.isNaN(fromIdx)) {
+                                movePhoto(fromIdx, idx);
                               }
+                              setDraggedPhotoIdx(null);
+                              setDragOverIdx(null);
                             }}
-                            onDragEnd={() => setDraggedPhotoIdx(null)}
-                            className={`relative shrink-0 cursor-grab active:cursor-grabbing transition ${draggedPhotoIdx === idx ? "opacity-40 scale-95" : ""}`}
+                            onDragEnd={() => {
+                              setDraggedPhotoIdx(null);
+                              setDragOverIdx(null);
+                            }}
+                            className={`relative shrink-0 cursor-grab active:cursor-grabbing rounded-lg transition ${
+                              draggedPhotoIdx === idx ? "opacity-40 scale-95" : ""
+                            } ${
+                              dragOverIdx === idx && draggedPhotoIdx !== idx ? "ring-2 ring-black scale-105" : ""
+                            }`}
                           >
                             <img
                               src={src}
@@ -608,7 +627,7 @@ export default function App() {
                               draggable={false}
                               className="h-36 w-28 object-cover rounded-lg border border-neutral-200 pointer-events-none select-none"
                             />
-                            <span className="absolute top-1.5 left-1.5 bg-black/75 text-white text-[10px] font-bold px-2 py-0.5 rounded-md">
+                            <span className="absolute top-1.5 left-1.5 bg-black/75 text-white text-[10px] font-bold px-2 py-0.5 rounded-md pointer-events-none">
                               {idx === 0 ? "Utama" : `Slide ${idx + 1}`}
                             </span>
                             <button
