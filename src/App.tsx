@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { ShoppingBag, Search, X, Plus, Minus, ArrowRight, Phone, ShieldCheck, Truck, Lock, Trash2, Upload, LogOut, Image as ImageIcon, Save, QrCode, Copy, Check, CheckCircle2, Package } from 'lucide-react';
+import { ShoppingBag, Search, X, Plus, Minus, ArrowRight, Phone, ShieldCheck, Truck, Lock, Trash2, Upload, LogOut, Image as ImageIcon, Save, QrCode, Copy, Check, CheckCircle2, Package, Download, Pencil } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 import {
   ProductDetailModal, getColorHex,
@@ -10,6 +10,7 @@ import {
 } from './components/ProductDetailModal';
 import { OrderTrackingModal } from './components/OrderTrackingModal';
 import { AdminOrdersSection } from './components/AdminOrdersSection';
+import { EditProductModal } from './components/EditProductModal';
 
 const STORE_NAME_FIRST = 'WS';
 const STORE_NAME_SECOND = 'STORE';
@@ -120,6 +121,8 @@ export default function App() {
   const [copiedNominal, setCopiedNominal] = useState<boolean>(false);
   const [isOrdersOpen, setIsOrdersOpen] = useState<boolean>(false);
   const [adminTab, setAdminTab] = useState<'products' | 'orders'>('products');
+  const [pendingOrdersCount, setPendingOrdersCount] = useState<number>(0);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [myOrderCodes, setMyOrderCodes] = useState<string[]>(() => {
     try {
       const saved = localStorage.getItem('ws_my_order_codes');
@@ -130,6 +133,18 @@ export default function App() {
   });
 
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState<boolean>(false);
+
+
+  useEffect(() => {
+    if (!isAdminRoute || !isAdminLoggedIn || !supabase) return;
+    supabase
+      .from('orders')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'pending')
+      .then(({ count }: any) => {
+        if (typeof count === 'number') setPendingOrdersCount(count);
+      });
+  }, [isAdminRoute, isAdminLoggedIn, adminTab]);
   const [passwordInput, setPasswordInput] = useState<string>('');
   const [loginError, setLoginError] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
@@ -482,6 +497,18 @@ export default function App() {
           proof_url: proofPreview,
           status: 'pending',
         }]);
+        const stockChanges: Record<string, StockMap> = {};
+        cart.forEach((item) => {
+          const prod = products.find((p) => p.id === item.id);
+          if (!prod) return;
+          if (!stockChanges[item.id]) stockChanges[item.id] = { ...prod.stock };
+          const cur = stockChanges[item.id][item.size] ?? 0;
+          stockChanges[item.id][item.size] = Math.max(0, cur - item.quantity);
+        });
+        for (const [prodId, nextStock] of Object.entries(stockChanges)) {
+          await supabase.from('products').update({ stock: nextStock }).eq('id', prodId);
+        }
+        setProducts((prev) => prev.map((p) => (stockChanges[p.id] ? { ...p, stock: stockChanges[p.id] } : p)));
       }
 
       await fetch('/api/notify-order', {
@@ -657,7 +684,7 @@ export default function App() {
                   Kelola Produk
                 </button>
                 <button type="button" onClick={() => setAdminTab('orders')} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-black text-white text-xs font-semibold cursor-pointer">
-                  <Package className="w-3.5 h-3.5" /> Pesanan Masuk
+                  <Package className="w-3.5 h-3.5" /> Pesanan Masuk {pendingOrdersCount > 0 && <span className="ml-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-amber-400 text-black text-[10px] font-bold inline-flex items-center justify-center">{pendingOrdersCount}</span>}
                 </button>
                 <button type="button" onClick={() => { window.location.hash = ''; }} className="hidden sm:inline-flex px-3 py-1.5 rounded-lg border border-neutral-200 hover:bg-neutral-100 text-xs font-medium text-neutral-600 transition cursor-pointer">
                   Lihat Toko
@@ -666,7 +693,7 @@ export default function App() {
             </div>
           </header>
           <main className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
-            <AdminOrdersSection supabase={supabase} formatRupiah={formatRupiah} />
+            <AdminOrdersSection supabase={supabase} formatRupiah={formatRupiah} onPendingCountChange={setPendingOrdersCount} />
           </main>
         </div>
       );
@@ -688,7 +715,7 @@ export default function App() {
             </div>
         <div className="flex items-center gap-3">
               <button type="button" onClick={() => setAdminTab('orders')} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-black hover:bg-neutral-800 text-white text-xs font-semibold transition cursor-pointer">
-              <Package className="w-3.5 h-3.5" /> Pesanan Masuk
+              <Package className="w-3.5 h-3.5" /> Pesanan Masuk {pendingOrdersCount > 0 && <span className="ml-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-amber-400 text-black text-[10px] font-bold inline-flex items-center justify-center">{pendingOrdersCount}</span>}
             </button>
             <button
                 onClick={() => {
@@ -709,6 +736,7 @@ export default function App() {
             </div>
           </div>
         </header>
+        <EditProductModal product={editingProduct} onClose={() => setEditingProduct(null)} supabase={supabase} onUpdated={(updated) => setProducts((prev) => prev.map((p) => (p.id === updated.id ? updated : p)))} />
 
         <main className="max-w-4xl mx-auto px-4 pt-6 space-y-8">
           <section className="bg-white border border-neutral-200 rounded-2xl p-5 sm:p-6 shadow-sm">
@@ -1072,6 +1100,9 @@ export default function App() {
                             ? 'Menyimpan...'
                             : 'Simpan Stok'}
                         </button>
+                        <button type="button" onClick={() => setEditingProduct(item)} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-neutral-300 hover:bg-neutral-100 text-xs font-medium text-neutral-700 transition cursor-pointer">
+                          <Pencil className="w-3.5 h-3.5" /> Edit
+                        </button>
                       </div>
                     </div>
                   );
@@ -1317,6 +1348,7 @@ export default function App() {
                 <input type="text" value={customerAddress} onChange={(e) => setCustomerAddress(e.target.value)} placeholder="Alamat lengkap pengiriman..." className="w-full bg-[#18181E] border border-[#2A2A33] focus:border-[#D6C0A0] rounded-lg px-3 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none" />
                 <div className="space-y-1.5 pt-1 text-xs">
                   <div className="flex justify-between text-zinc-400"><span>Subtotal</span><span>{formatRupiah(subtotal)}</span></div>
+                  <div className="flex justify-between text-zinc-400"><span>Ongkos Kirim</span><span className="text-zinc-300">Belum termasuk (bayar di tujuan / info WA)</span></div>
                   {promoApplied && <div className="flex justify-between text-[#D6C0A0] font-medium"><span>Diskon OFFICIALWS (5%)</span><span>-{formatRupiah(discount)}</span></div>}
                   <div className="flex justify-between text-sm font-bold text-white pt-1.5 border-t border-[#232329]"><span>Total Bayar</span><span className="font-display text-base text-[#D6C0A0]">{formatRupiah(total)}</span></div>
                 </div>
@@ -1375,6 +1407,9 @@ export default function App() {
                 <div className="bg-white rounded-xl p-3 flex flex-col items-center">
                   <img src="/qris.png" alt="QRIS WS.STORE" className="w-full max-w-[270px] rounded-lg object-contain" />
                   <p className="text-[11px] text-zinc-600 mt-2 text-center">Scan QRIS di atas pakai aplikasi bank / e-wallet apa saja</p>
+                  <a href="/qris.png" download="QRIS-WS-STORE.png" className="mt-2.5 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-white text-[11px] font-semibold transition">
+                    <Download className="w-3.5 h-3.5" /> Simpan Gambar QRIS
+                  </a>
                 </div>
 
                 <div className="space-y-2">

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Package, RefreshCw, Save, Eye, X, Check, Phone, Search } from 'lucide-react';
+import { Package, RefreshCw, Save, Eye, X, Check, Phone, Search, Copy, Trash2 } from 'lucide-react';
 
 interface AdminOrder {
   id: string;
@@ -20,6 +20,7 @@ interface AdminOrder {
 interface AdminOrdersSectionProps {
   supabase: any;
   formatRupiah: (amount: number) => string;
+  onPendingCountChange?: (count: number) => void;
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -38,7 +39,7 @@ const STATUS_BADGE: Record<string, string> = {
   cancelled: 'bg-red-100 text-red-800 border-red-200',
 };
 
-export function AdminOrdersSection({ supabase, formatRupiah }: AdminOrdersSectionProps) {
+export function AdminOrdersSection({ supabase, formatRupiah, onPendingCountChange }: AdminOrdersSectionProps) {
   const [orders, setOrders] = useState<AdminOrder[]>([]);
   const [loading, setLoading] = useState(false);
   const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -46,7 +47,13 @@ export function AdminOrdersSection({ supabase, formatRupiah }: AdminOrdersSectio
   const [drafts, setDrafts] = useState<Record<string, { status: string; courier: string; tracking_number: string; shipping_estimate: string }>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
   const [savedId, setSavedId] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [previewProof, setPreviewProof] = useState<string | null>(null);
+
+  const syncPendingCount = (list: AdminOrder[]) => {
+    onPendingCountChange?.(list.filter((o) => o.status === 'pending').length);
+  };
 
   const fetchOrders = async () => {
     if (!supabase) return;
@@ -59,6 +66,7 @@ export function AdminOrdersSection({ supabase, formatRupiah }: AdminOrdersSectio
         .limit(100);
       const list = (data as AdminOrder[]) || [];
       setOrders(list);
+      syncPendingCount(list);
       const initial: Record<string, { status: string; courier: string; tracking_number: string; shipping_estimate: string }> = {};
       list.forEach((o) => {
         initial[o.id] = {
@@ -93,7 +101,11 @@ export function AdminOrdersSection({ supabase, formatRupiah }: AdminOrdersSectio
         })
         .eq('id', orderId);
       if (error) throw error;
-      setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, ...d } : o)));
+      setOrders((prev) => {
+        const next = prev.map((o) => (o.id === orderId ? { ...o, ...d } : o));
+        syncPendingCount(next);
+        return next;
+      });
       setSavedId(orderId);
       setTimeout(() => setSavedId(null), 2000);
     } catch (err) {
@@ -101,6 +113,44 @@ export function AdminOrdersSection({ supabase, formatRupiah }: AdminOrdersSectio
       alert('Gagal menyimpan update pesanan.');
     } finally {
       setSavingId(null);
+    }
+  };
+
+  const handleCopyAddress = (order: AdminOrder) => {
+    const code = order.order_code || ('#' + order.id.slice(0, 6).toUpperCase());
+    const itemsText = (order.items || [])
+      .map((it) => `- ${it.name} (${it.size}${it.color ? ', ' + it.color : ''}) x${it.quantity}`)
+      .join('\n');
+    const text = [
+      `Order: ${code}`,
+      `Penerima: ${order.customer_name}`,
+      `No. HP: ${order.customer_phone || '-'}`,
+      `Alamat: ${order.customer_address}`,
+      `Pesanan:\n${itemsText}`,
+    ].join('\n');
+    navigator.clipboard?.writeText(text);
+    setCopiedId(order.id);
+    setTimeout(() => setCopiedId(null), 1800);
+  };
+
+  const handleDeleteOrder = async (order: AdminOrder) => {
+    const code = order.order_code || ('#' + order.id.slice(0, 6).toUpperCase());
+    if (!window.confirm(`Hapus pesanan ${code} atas nama ${order.customer_name}? Data tidak bisa dikembalikan.`)) return;
+    if (!supabase) return;
+    setDeletingId(order.id);
+    try {
+      const { error } = await supabase.from('orders').delete().eq('id', order.id);
+      if (error) throw error;
+      setOrders((prev) => {
+        const next = prev.filter((o) => o.id !== order.id);
+        syncPendingCount(next);
+        return next;
+      });
+    } catch (err) {
+      console.error(err);
+      alert('Gagal menghapus pesanan. Pastikan SQL policy DELETE di Supabase sudah dijalankan.');
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -127,6 +177,14 @@ export function AdminOrdersSection({ supabase, formatRupiah }: AdminOrdersSectio
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
   };
 
+  const counts = {
+    all: orders.length,
+    pending: orders.filter((o) => o.status === 'pending').length,
+    packed: orders.filter((o) => o.status === 'packed').length,
+    shipped: orders.filter((o) => o.status === 'shipped').length,
+    completed: orders.filter((o) => o.status === 'completed').length,
+  };
+
   const filtered = orders.filter((o) => {
     if (filterStatus !== 'all' && o.status !== filterStatus) return false;
     const q = searchQuery.trim().toLowerCase();
@@ -149,13 +207,13 @@ export function AdminOrdersSection({ supabase, formatRupiah }: AdminOrdersSectio
           </div>
           <div>
             <h1 className="text-lg font-bold text-neutral-900">Kelola Pesanan Masuk</h1>
-            <p className="text-xs text-neutral-500">Cek bukti bayar, update status pengiriman, dan input nomor resi</p>
+            <p className="text-xs text-neutral-500">Cek bukti bayar, salin alamat, update status pengiriman, dan input resi</p>
           </div>
         </div>
         <button
           type="button"
           onClick={fetchOrders}
-          className="self-start sm:self-center inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-neutral-300 hover:bg-neutral-100 text-xs font-semibold text-neutral-700 transition"
+          className="self-start sm:self-center inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-neutral-300 hover:bg-neutral-100 text-xs font-semibold text-neutral-700 transition cursor-pointer"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} /> Refresh Data
         </button>
@@ -164,17 +222,17 @@ export function AdminOrdersSection({ supabase, formatRupiah }: AdminOrdersSectio
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
           {[
-            { key: 'all', label: `Semua (${orders.length})` },
-            { key: 'pending', label: 'Menunggu' },
-            { key: 'packed', label: 'Dikemas' },
-            { key: 'shipped', label: 'Dikirim' },
-            { key: 'completed', label: 'Selesai' },
+            { key: 'all', label: `Semua (${counts.all})` },
+            { key: 'pending', label: `Menunggu (${counts.pending})` },
+            { key: 'packed', label: `Dikemas (${counts.packed})` },
+            { key: 'shipped', label: `Dikirim (${counts.shipped})` },
+            { key: 'completed', label: `Selesai (${counts.completed})` },
           ].map((tab) => (
             <button
               key={tab.key}
               type="button"
               onClick={() => setFilterStatus(tab.key)}
-              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap border transition ${filterStatus === tab.key ? 'bg-black text-white border-black' : 'bg-white text-neutral-600 border-neutral-200 hover:border-neutral-400'}`}
+              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap border transition cursor-pointer ${filterStatus === tab.key ? 'bg-black text-white border-black' : 'bg-white text-neutral-600 border-neutral-200 hover:border-neutral-400'}`}
             >
               {tab.label}
             </button>
@@ -208,7 +266,7 @@ export function AdminOrdersSection({ supabase, formatRupiah }: AdminOrdersSectio
       ) : filtered.length === 0 ? (
         <div className="bg-white rounded-2xl border border-neutral-200 p-12 text-center space-y-2">
           <Package className="w-9 h-9 text-neutral-300 mx-auto" />
-          <p className="text-sm font-medium text-neutral-600">Belum ada pesanan di kategori ini.</p>
+          <p className="text-sm font-medium text-neutral-600">Tidak ada pesanan yang cocok.</p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -235,18 +293,25 @@ export function AdminOrdersSection({ supabase, formatRupiah }: AdminOrdersSectio
                     </p>
                     <p className="text-xs text-neutral-500 mt-0.5">{order.customer_address}</p>
                   </div>
-                  <div className="flex items-center gap-2.5">
-                    <div className="text-right">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="text-right mr-1">
                       <p className="text-[11px] text-neutral-400">Total Bayar</p>
                       <p className="font-bold text-base text-neutral-900">{formatRupiah(order.total)}</p>
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyAddress(order)}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-neutral-200 hover:bg-neutral-100 text-xs font-semibold text-neutral-700 transition cursor-pointer"
+                    >
+                      {copiedId === order.id ? <><Check className="w-3.5 h-3.5 text-emerald-600" /> Tersalin</> : <><Copy className="w-3.5 h-3.5" /> Salin Alamat</>}
+                    </button>
                     {order.proof_url && (
                       <button
                         type="button"
                         onClick={() => setPreviewProof(order.proof_url || null)}
-                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-neutral-100 hover:bg-neutral-200 text-xs font-semibold text-neutral-800 transition"
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-neutral-100 hover:bg-neutral-200 text-xs font-semibold text-neutral-800 transition cursor-pointer"
                       >
-                        <Eye className="w-3.5 h-3.5" /> Lihat Bukti TF
+                        <Eye className="w-3.5 h-3.5" /> Bukti TF
                       </button>
                     )}
                   </div>
@@ -308,22 +373,32 @@ export function AdminOrdersSection({ supabase, formatRupiah }: AdminOrdersSectio
                   </div>
                 </div>
 
-                <div className="flex flex-wrap items-center justify-end gap-2 pt-2 border-t border-neutral-100">
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-neutral-100">
                   <button
                     type="button"
-                    onClick={() => openWhatsAppNotify(order)}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition"
+                    disabled={deletingId === order.id}
+                    onClick={() => handleDeleteOrder(order)}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-red-600 hover:bg-red-50 text-xs font-semibold transition cursor-pointer"
                   >
-                    <Phone className="w-3.5 h-3.5" /> Kabarin via WA
+                    <Trash2 className="w-3.5 h-3.5" /> {deletingId === order.id ? 'Menghapus...' : 'Hapus'}
                   </button>
-                  <button
-                    type="button"
-                    disabled={savingId === order.id}
-                    onClick={() => handleSave(order.id)}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-black hover:bg-neutral-800 text-white text-xs font-semibold transition"
-                  >
-                    {savedId === order.id ? <><Check className="w-3.5 h-3.5 text-emerald-400" /> Tersimpan</> : <><Save className="w-3.5 h-3.5" /> Simpan Update</>}
-                  </button>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => openWhatsAppNotify(order)}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition cursor-pointer"
+                    >
+                      <Phone className="w-3.5 h-3.5" /> Kabarin via WA
+                    </button>
+                    <button
+                      type="button"
+                      disabled={savingId === order.id}
+                      onClick={() => handleSave(order.id)}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-black hover:bg-neutral-800 text-white text-xs font-semibold transition cursor-pointer"
+                    >
+                      {savedId === order.id ? <><Check className="w-3.5 h-3.5 text-emerald-400" /> Tersimpan</> : <><Save className="w-3.5 h-3.5" /> Simpan Update</>}
+                    </button>
+                  </div>
                 </div>
               </div>
             );
