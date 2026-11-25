@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { X, ChevronLeft, ChevronRight, ShoppingBag } from 'lucide-react';
 
 export type SizeKey = 'S' | 'M' | 'L' | 'XL';
@@ -26,230 +26,118 @@ interface ProductDetailModalProps {
   formatRupiah: (amount: number) => string;
 }
 
-export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
-  product,
-  onClose,
-  onAddToCart,
-  formatRupiah,
-}) => {
-  const [currentSlide, setCurrentSlide] = useState(0);
+export function ProductDetailModal({ product, onClose, onAddToCart, formatRupiah }: ProductDetailModalProps) {
+  const [activeImgIdx, setActiveImgIdx] = useState(0);
   const [selectedSize, setSelectedSize] = useState<SizeKey>('M');
-  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [showSizeChart, setShowSizeChart] = useState(false);
 
   useEffect(() => {
     if (!product) return;
-    setCurrentSlide(0);
-    const firstAvailable = SIZES.find((sz) => (product.stock[sz] ?? 0) > 0);
-    setSelectedSize(firstAvailable || 'M');
+    setActiveImgIdx(0);
+    setShowSizeChart(false);
+    setSelectedSize(SIZES.find((s) => (product.stock?.[s] ?? 0) > 0) || 'M');
   }, [product]);
 
   if (!product) return null;
 
-  const slideImages = Array.from(
-    new Set([product.image, ...(product.images || [])].filter(Boolean))
-  );
-
-  const isAllSoldOut = SIZES.every((sz) => (product.stock[sz] ?? 0) <= 0);
-  const activeStock = product.stock[selectedSize] ?? 0;
-
-  const nextSlide = () => {
-    setCurrentSlide((prev) => (prev === slideImages.length - 1 ? 0 : prev + 1));
-  };
-
-  const prevSlide = () => {
-    setCurrentSlide((prev) => (prev === 0 ? slideImages.length - 1 : prev - 1));
-  };
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    setTouchStart(e.targetTouches[0].clientX);
-  };
-
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    if (!touchStart) return;
-    const distance = touchStart - e.changedTouches[0].clientX;
-    if (distance > 50) nextSlide();
-    if (distance < -50) prevSlide();
-    setTouchStart(null);
-  };
-
-  const handleAdd = () => {
-    if (activeStock <= 0) {
-      alert(`Maaf, ukuran ${selectedSize} sedang habis!`);
-      return;
-    }
-    onAddToCart(product, selectedSize);
-    onClose();
-  };
+  const images = product.images?.length ? product.images : (product as any).image ? [(product as any).image] : [];
+  const origPrice = (product as any).originalPrice ?? (product as any).original_price;
+  const activeStock = product.stock?.[selectedSize] ?? 0;
+  const isTotalOut = SIZES.every((s) => (product.stock?.[s] ?? 0) <= 0);
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 backdrop-blur-sm p-4"
-      onClick={onClose}
-    >
-      <div
-        className="relative w-full max-w-4xl bg-white rounded-2xl overflow-hidden shadow-2xl grid grid-cols-1 md:grid-cols-2 max-h-[90vh]"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 z-20 p-2 bg-white/90 hover:bg-white rounded-full text-neutral-900 shadow-sm transition cursor-pointer"
-          aria-label="Tutup Detail"
-        >
-          <X className="w-5 h-5" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-3 sm:p-5" onClick={onClose}>
+      <div className="relative w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl bg-[#141418] border border-[#27272F] text-[#F5F5F7] shadow-2xl grid grid-cols-1 md:grid-cols-2" onClick={(e) => e.stopPropagation()}>
+        <button onClick={onClose} aria-label="Tutup" className="absolute top-3.5 right-3.5 z-20 w-9 h-9 rounded-full bg-[#0B0B0D]/80 border border-[#2A2A32] text-zinc-300 hover:text-white hover:border-[#D6C0A0] flex items-center justify-center transition">
+          <X className="w-4 h-4" />
         </button>
 
-        {/* Bagian Kiri: Multi-Slide Carousel */}
-        <div
-          className="relative bg-neutral-100 flex flex-col justify-between aspect-[4/5] md:aspect-auto overflow-hidden select-none"
-          onTouchStart={handleTouchStart}
-          onTouchEnd={handleTouchEnd}
-        >
-          <img
-            src={slideImages[currentSlide]}
-            alt={`${product.name} - slide ${currentSlide + 1}`}
-            className="w-full h-full object-cover"
-          />
-
-          {isAllSoldOut ? (
-            <span className="absolute top-4 left-4 bg-neutral-900 text-white px-3 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase">
-              SOLD OUT
-            </span>
-          ) : (
-            product.tag && (
-              <span className="absolute top-4 left-4 bg-white/95 backdrop-blur px-3 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase">
-                {product.tag}
-              </span>
-            )
-          )}
-
-          {slideImages.length > 1 && (
-            <>
-              <button
-                onClick={prevSlide}
-                className="absolute left-3 top-1/2 -translate-y-1/2 p-2 bg-white/85 hover:bg-white rounded-full shadow-md transition cursor-pointer"
-              >
-                <ChevronLeft className="w-5 h-5 text-neutral-900" />
-              </button>
-              <button
-                onClick={nextSlide}
-                className="absolute right-3 top-1/2 -translate-y-1/2 p-2 bg-white/85 hover:bg-white rounded-full shadow-md transition cursor-pointer"
-              >
-                <ChevronRight className="w-5 h-5 text-neutral-900" />
-              </button>
-
-              <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-black/50 text-white text-[11px] font-semibold px-2.5 py-0.5 rounded-full backdrop-blur-sm">
-                {currentSlide + 1} / {slideImages.length}
-              </div>
-
-              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-2 bg-black/40 p-1.5 rounded-xl backdrop-blur-md max-w-[90%] overflow-x-auto">
-                {slideImages.map((img, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => setCurrentSlide(idx)}
-                    className={`w-10 h-12 rounded-lg overflow-hidden border-2 shrink-0 transition cursor-pointer ${
-                      currentSlide === idx
-                        ? 'border-white scale-105'
-                        : 'border-transparent opacity-60 hover:opacity-100'
-                    }`}
-                  >
-                    <img
-                      src={img}
-                      alt=""
-                      className="w-full h-full object-cover"
-                    />
-                  </button>
-                ))}
-              </div>
-            </>
+        <div className="bg-[#0E0E12] p-4 sm:p-5 flex flex-col justify-between border-b md:border-b-0 md:border-r border-[#232329]">
+          <div className="relative aspect-[4/5] w-full overflow-hidden rounded-xl bg-[#18181E] border border-[#232329]">
+            {images.length > 0 ? (
+              <img src={images[activeImgIdx] || images[0]} alt={product.name} className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-xs text-zinc-500">Tidak ada foto</div>
+            )}
+            {images.length > 1 && (
+              <>
+                <button type="button" onClick={() => setActiveImgIdx((p) => (p === 0 ? images.length - 1 : p - 1))} className="absolute left-2.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-[#0B0B0D]/75 border border-white/10 text-white flex items-center justify-center hover:bg-[#0B0B0D]">
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <button type="button" onClick={() => setActiveImgIdx((p) => (p === images.length - 1 ? 0 : p + 1))} className="absolute right-2.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-[#0B0B0D]/75 border border-white/10 text-white flex items-center justify-center hover:bg-[#0B0B0D]">
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </>
+            )}
+          </div>
+          {images.length > 1 && (
+            <div className="flex gap-2 mt-3 overflow-x-auto pb-1">
+              {images.map((img, idx) => (
+                <button key={idx} type="button" onClick={() => setActiveImgIdx(idx)} className={`w-14 h-16 shrink-0 rounded-lg overflow-hidden border transition ${activeImgIdx === idx ? 'border-[#D6C0A0] ring-1 ring-[#D6C0A0]' : 'border-[#27272F] opacity-55 hover:opacity-100'}`}>
+                  <img src={img} alt="" className="w-full h-full object-cover" />
+                </button>
+              ))}
+            </div>
           )}
         </div>
 
-        {/* Bagian Kanan: Deskripsi & Pilih Size */}
-        <div className="p-6 md:p-8 flex flex-col justify-between overflow-y-auto">
-          <div>
-            <p className="text-[11px] font-bold uppercase tracking-widest text-neutral-400">
-              {product.categoryLabel}
-            </p>
-            <h2 className="text-2xl font-black tracking-tight text-neutral-900 mt-1">
-              {product.name}
-            </h2>
-
-            <div className="flex items-baseline gap-2.5 mt-2">
-              <p className="text-xl font-black text-neutral-900">
-                {formatRupiah(product.price)}
-              </p>
-              {product.originalPrice && (
-                <p className="text-sm text-neutral-400 line-through">
-                  {formatRupiah(product.originalPrice)}
-                </p>
-              )}
-            </div>
-
-            <div className="mt-6 border-t border-neutral-100 pt-5">
-              <h3 className="text-[11px] font-bold uppercase tracking-wider text-neutral-400">
-                Deskripsi Produk
-              </h3>
-              <p className="mt-2 text-sm text-neutral-600 leading-relaxed whitespace-pre-line">
-                {product.description || 'Tidak ada deskripsi produk.'}
-              </p>
-            </div>
-
-            <div className="mt-6">
-              <div className="flex items-center justify-between">
-                <h3 className="text-[11px] font-bold uppercase tracking-wider text-neutral-400">
-                  Pilih Ukuran
-                </h3>
-                <span
-                  className={`text-[11px] font-medium ${
-                    activeStock > 0
-                      ? 'text-neutral-500'
-                      : 'text-red-500 font-semibold'
-                  }`}
-                >
-                  {activeStock > 0
-                    ? `Sisa stok (${selectedSize}): ${activeStock} pcs`
-                    : 'Stok habis'}
-                </span>
+        <div className="p-5 sm:p-6 flex flex-col justify-between space-y-5">
+          <div className="space-y-4">
+            <div>
+              <span className="inline-block text-[11px] font-medium uppercase tracking-wider text-[#D6C0A0] bg-[#D6C0A0]/10 border border-[#D6C0A0]/25 px-2.5 py-0.5 rounded-full">{product.category}</span>
+              <h2 className="font-display text-xl sm:text-2xl font-bold text-white mt-2 leading-snug">{product.name}</h2>
+              <div className="flex items-baseline gap-2.5 mt-1.5">
+                <span className="font-display text-xl font-bold text-[#D6C0A0]">{formatRupiah(product.price)}</span>
+                {origPrice && origPrice > product.price && <span className="text-xs text-zinc-500 line-through">{formatRupiah(origPrice)}</span>}
               </div>
+            </div>
+            {product.description && <p className="text-xs sm:text-sm text-zinc-400 leading-relaxed border-t border-[#232329] pt-3">{product.description}</p>}
 
-              <div className="grid grid-cols-4 gap-2.5 mt-2">
+            <div className="space-y-2 pt-1">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-zinc-300">
+                  Pilih Ukuran: <strong className="text-white">{selectedSize}</strong>
+                  {activeStock > 0 && <span className="text-zinc-500 ml-1.5">(Stok: {activeStock})</span>}
+                </span>
+                <button type="button" onClick={() => setShowSizeChart((v) => !v)} className="text-[11px] font-medium text-[#D6C0A0] hover:underline">
+                  {showSizeChart ? 'Tutup Size Chart' : 'Lihat Size Chart'}
+                </button>
+              </div>
+              <div className="grid grid-cols-4 gap-2">
                 {SIZES.map((sz) => {
-                  const qty = product.stock[sz] ?? 0;
-                  const outOfStock = qty <= 0;
-                  const active = selectedSize === sz;
+                  const disabled = (product.stock?.[sz] ?? 0) <= 0;
+                  const active = selectedSize === sz && !disabled;
                   return (
-                    <button
-                      key={sz}
-                      disabled={outOfStock}
-                      onClick={() => setSelectedSize(sz)}
-                      className={`py-2.5 rounded-xl text-xs font-bold border transition ${
-                        outOfStock
-                          ? 'border-neutral-200 bg-neutral-50 text-neutral-300 line-through cursor-not-allowed'
-                          : active
-                          ? 'border-black bg-black text-white cursor-pointer'
-                          : 'border-neutral-300 text-neutral-800 hover:border-black cursor-pointer'
-                      }`}
-                    >
+                    <button key={sz} type="button" disabled={disabled} onClick={() => setSelectedSize(sz)} className={`py-2.5 rounded-lg text-xs font-semibold border transition ${disabled ? 'border-[#232329] bg-[#101014] text-zinc-600 line-through cursor-not-allowed' : active ? 'border-[#D6C0A0] bg-[#D6C0A0] text-[#0B0B0D]' : 'border-[#2A2A32] bg-[#1A1A20] text-zinc-200 hover:border-[#D6C0A0]/60'}`}>
                       {sz}
                     </button>
                   );
                 })}
               </div>
+              {showSizeChart && (
+                <div className="mt-2 rounded-xl bg-[#0E0E12] border border-[#232329] p-3 text-[11px]">
+                  <p className="font-semibold text-zinc-300 mb-1.5">Panduan Ukuran (cm)</p>
+                  <div className="grid grid-cols-3 text-zinc-400 border-b border-[#232329] pb-1 mb-1 font-medium">
+                    <span>Size</span><span>Lebar Dada</span><span>Panjang</span>
+                  </div>
+                  {[['S','52 cm','68 cm'],['M','54 cm','70 cm'],['L','56 cm','72 cm'],['XL','58 cm','74 cm']].map(([s,w,l]) => (
+                    <div key={s} className="grid grid-cols-3 text-zinc-300 py-0.5">
+                      <span className="font-semibold text-[#D6C0A0]">{s}</span><span>{w}</span><span>{l}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
-          <button
-            disabled={isAllSoldOut || activeStock <= 0}
-            onClick={handleAdd}
-            className="mt-8 w-full py-3.5 px-6 bg-black hover:bg-neutral-800 text-white text-sm font-semibold rounded-full flex items-center justify-center gap-2 transition disabled:bg-neutral-200 disabled:text-neutral-400 disabled:cursor-not-allowed cursor-pointer"
-          >
-            <ShoppingBag className="w-4 h-4" />
-            {isAllSoldOut || activeStock <= 0
-              ? 'Stok Habis'
-              : 'Tambah ke Keranjang'}
-          </button>
+          <div className="pt-2 border-t border-[#232329]">
+            <button type="button" disabled={isTotalOut || activeStock <= 0} onClick={() => { onAddToCart(product, selectedSize); onClose(); }} className="w-full py-3.5 rounded-xl bg-[#D6C0A0] hover:bg-[#E4D2B7] disabled:bg-zinc-800 disabled:text-zinc-500 text-[#0B0B0D] font-semibold text-sm flex items-center justify-center gap-2 transition cursor-pointer disabled:cursor-not-allowed">
+              <ShoppingBag className="w-4 h-4" />
+              {isTotalOut ? 'Stok Habis' : `Tambah ke Keranjang • ${selectedSize}`}
+            </button>
+          </div>
         </div>
       </div>
     </div>
   );
-};
+}
