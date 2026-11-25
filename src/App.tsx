@@ -1245,7 +1245,7 @@ export default function App() {
           </div>
           <div className="flex items-start gap-3">
             <div className="w-8 h-8 rounded-lg bg-[#D6C0A0]/10 border border-[#D6C0A0]/25 text-[#D6C0A0] flex items-center justify-center shrink-0"><ShieldCheck className="w-4 h-4" /></div>
-            <div><p className="font-semibold text-white">Kualitas Terjamin</p><p className="text-zinc-400 mt-0.5">Bahan nyaman dipakai harian dan dicek ulang sebelum dikirim.</p></div>
+            <div><p className="font-semibold text-white">Material Nyaman</p><p className="text-zinc-400 mt-0.5">Bahan adem, lembut, dan enak dipakai untuk aktivitas sehari-hari.</p></div>
           </div>
           <div className="flex items-start gap-3">
             <div className="w-8 h-8 rounded-lg bg-[#D6C0A0]/10 border border-[#D6C0A0]/25 text-[#D6C0A0] flex items-center justify-center shrink-0"><QrCode className="w-4 h-4" /></div>
