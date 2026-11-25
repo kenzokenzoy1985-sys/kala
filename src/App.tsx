@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { ShoppingBag, Search, X, Plus, Minus, ArrowRight, Phone, ShieldCheck, Truck, Lock, Trash2, Upload, LogOut, Image as ImageIcon, Save, QrCode, Copy, Check, CheckCircle2 } from 'lucide-react';
+import { ShoppingBag, Search, X, Plus, Minus, ArrowRight, Phone, ShieldCheck, Truck, Lock, Trash2, Upload, LogOut, Image as ImageIcon, Save, QrCode, Copy, Check, CheckCircle2, Package } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 import {
   ProductDetailModal, getColorHex,
@@ -8,6 +8,8 @@ import {
   SIZES,
   type StockMap,
 } from './components/ProductDetailModal';
+import { OrderTrackingModal } from './components/OrderTrackingModal';
+import { AdminOrdersSection } from './components/AdminOrdersSection';
 
 const STORE_NAME_FIRST = 'WS';
 const STORE_NAME_SECOND = 'STORE';
@@ -116,6 +118,15 @@ export default function App() {
   const [isConfirmingOrder, setIsConfirmingOrder] = useState<boolean>(false);
   const [orderSuccess, setOrderSuccess] = useState<{ id: string; total: number } | null>(null);
   const [copiedNominal, setCopiedNominal] = useState<boolean>(false);
+  const [isOrdersOpen, setIsOrdersOpen] = useState<boolean>(false);
+  const [myOrderCodes, setMyOrderCodes] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('ws_my_order_codes');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
 
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState<boolean>(false);
   const [passwordInput, setPasswordInput] = useState<string>('');
@@ -457,6 +468,8 @@ export default function App() {
     try {
       if (supabase) {
         await supabase.from('orders').insert([{
+          order_code: orderCode,
+          shipping_estimate: 'Estimasi dikirim dalam 1x24 jam setelah konfirmasi',
           customer_name: customerName.trim(),
           customer_phone: customerPhone.trim(),
           customer_address: customerAddress.trim(),
@@ -488,6 +501,11 @@ export default function App() {
       });
 
       setOrderSuccess({ id: orderCode, total: finalTotal });
+      setMyOrderCodes((prev) => {
+        const next = [orderCode, ...prev.filter((c) => c !== orderCode)];
+        try { localStorage.setItem('ws_my_order_codes', JSON.stringify(next)); } catch {}
+        return next;
+      });
       setCart([]);
       setPromoInput('');
       setPromoApplied(false);
@@ -636,7 +654,8 @@ export default function App() {
                 ADMIN
               </span>
             </div>
-            <div className="flex items-center gap-3">
+            <AdminOrdersSection supabase={supabase} formatRupiah={formatRupiah} />
+        <div className="flex items-center gap-3">
               <button
                 onClick={() => {
                   window.location.hash = '';
@@ -1047,11 +1066,18 @@ export default function App() {
             <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Cari kaos, hoodie, celana..." className="w-full bg-[#141418] border border-[#232329] focus:border-[#D6C0A0] rounded-full pl-9 pr-8 py-1.5 text-xs sm:text-sm text-white placeholder-zinc-500 focus:outline-none transition" />
             {searchQuery && <button type="button" onClick={() => setSearchQuery('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white"><X className="w-3.5 h-3.5" /></button>}
           </div>
-          <button type="button" onClick={() => setIsCartOpen(true)} className="relative shrink-0 inline-flex items-center gap-2 px-3.5 py-2 rounded-full bg-[#141418] hover:bg-[#1C1C22] border border-[#27272F] hover:border-[#D6C0A0]/60 text-xs sm:text-sm font-medium text-white transition">
+          <div className="flex items-center gap-2 shrink-0">
+            <button type="button" onClick={() => setIsOrdersOpen(true)} className="relative shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-full bg-[#141418] hover:bg-[#1C1C22] border border-[#27272F] hover:border-[#D6C0A0]/60 text-xs sm:text-sm font-medium text-white transition">
+              <Package className="w-4 h-4 text-[#D6C0A0]" />
+              <span className="hidden sm:inline">Pesanan</span>
+              {myOrderCodes.length > 0 && <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-emerald-500 text-black text-[10px] font-bold flex items-center justify-center">{myOrderCodes.length}</span>}
+            </button>
+            <button type="button" onClick={() => setIsCartOpen(true)} className="relative shrink-0 inline-flex items-center gap-2 px-3.5 py-2 rounded-full bg-[#141418] hover:bg-[#1C1C22] border border-[#27272F] hover:border-[#D6C0A0]/60 text-xs sm:text-sm font-medium text-white transition">
             <ShoppingBag className="w-4 h-4 text-[#D6C0A0]" />
             <span className="hidden sm:inline">Keranjang</span>
             {totalItems > 0 && <span className="min-w-[20px] h-5 px-1.5 rounded-full bg-[#D6C0A0] text-[#0B0B0D] text-[11px] font-bold flex items-center justify-center">{totalItems}</span>}
           </button>
+          </div>
         </div>
       </header>
 
@@ -1198,6 +1224,8 @@ export default function App() {
         © 2026 {STORE_NAME_FIRST}.{STORE_NAME_SECOND}. All rights reserved.
       </footer>
 
+      <OrderTrackingModal isOpen={isOrdersOpen} onClose={() => setIsOrdersOpen(false)} supabase={supabase} formatRupiah={formatRupiah} savedOrderCodes={myOrderCodes} />
+
       <ProductDetailModal product={selectedProductModal} onClose={() => setSelectedProductModal(null)} onAddToCart={(product, size, color) => addToCart(product, size, color)} formatRupiah={formatRupiah} />
 
       {isCartOpen && (
@@ -1289,9 +1317,14 @@ export default function App() {
                 <p className="text-xs text-zinc-400 leading-relaxed">
                   Bukti transfer sebesar <strong className="text-white">{formatRupiah(orderSuccess.total)}</strong> sudah otomatis dikirim ke admin. Kami akan segera memproses pesanan kamu.
                 </p>
-                <button type="button" onClick={() => setIsQrisOpen(false)} className="mt-2 w-full py-2.5 rounded-xl bg-[#D6C0A0] text-[#0B0B0D] font-semibold text-xs">
-                  Kembali ke Toko
-                </button>
+                <div className="space-y-2 pt-2">
+                  <button type="button" onClick={() => { setIsQrisOpen(false); setIsOrdersOpen(true); }} className="w-full py-2.5 rounded-xl bg-[#D6C0A0] hover:bg-[#E4D2B7] text-[#0B0B0D] font-bold text-xs transition">
+                    Lihat Status &amp; Jadwal Pengiriman
+                  </button>
+                  <button type="button" onClick={() => setIsQrisOpen(false)} className="w-full py-2.5 rounded-xl bg-[#1A1A20] border border-[#2A2A33] text-zinc-300 hover:text-white font-medium text-xs transition">
+                    Kembali ke Toko
+                  </button>
+                </div>
               </div>
             ) : (
               <>
