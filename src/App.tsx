@@ -119,6 +119,7 @@ export default function App() {
   const [orderSuccess, setOrderSuccess] = useState<{ id: string; total: number } | null>(null);
   const [copiedNominal, setCopiedNominal] = useState<boolean>(false);
   const [isOrdersOpen, setIsOrdersOpen] = useState<boolean>(false);
+  const [adminTab, setAdminTab] = useState<'products' | 'orders'>('products');
   const [myOrderCodes, setMyOrderCodes] = useState<string[]>(() => {
     try {
       const saved = localStorage.getItem('ws_my_order_codes');
@@ -640,6 +641,37 @@ export default function App() {
       );
     }
 
+    if (adminTab === 'orders') {
+      return (
+        <div className="min-h-screen bg-neutral-50 text-neutral-900">
+          <header className="sticky top-0 z-30 bg-white border-b border-neutral-200">
+            <div className="max-w-5xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <span className="font-display text-lg font-bold tracking-tight">
+                  {STORE_NAME_FIRST}<span className="text-neutral-400">.</span>{STORE_NAME_SECOND}
+                </span>
+                <span className="px-2 py-0.5 rounded-full bg-black text-white text-[10px] font-bold uppercase tracking-wider">Admin</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button type="button" onClick={() => setAdminTab('products')} className="px-3 py-1.5 rounded-lg border border-neutral-300 hover:bg-neutral-100 text-xs font-semibold text-neutral-700 transition cursor-pointer">
+                  Kelola Produk
+                </button>
+                <button type="button" onClick={() => setAdminTab('orders')} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-black text-white text-xs font-semibold cursor-pointer">
+                  <Package className="w-3.5 h-3.5" /> Pesanan Masuk
+                </button>
+                <button type="button" onClick={() => { window.location.hash = ''; }} className="hidden sm:inline-flex px-3 py-1.5 rounded-lg border border-neutral-200 hover:bg-neutral-100 text-xs font-medium text-neutral-600 transition cursor-pointer">
+                  Lihat Toko
+                </button>
+              </div>
+            </div>
+          </header>
+          <main className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+            <AdminOrdersSection supabase={supabase} formatRupiah={formatRupiah} />
+          </main>
+        </div>
+      );
+    }
+
     return (
       <div className="min-h-screen bg-neutral-50 text-neutral-900 pb-20">
         <header className="bg-white border-b border-neutral-200 sticky top-0 z-20">
@@ -654,9 +686,11 @@ export default function App() {
                 ADMIN
               </span>
             </div>
-            <AdminOrdersSection supabase={supabase} formatRupiah={formatRupiah} />
         <div className="flex items-center gap-3">
-              <button
+              <button type="button" onClick={() => setAdminTab('orders')} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-black hover:bg-neutral-800 text-white text-xs font-semibold transition cursor-pointer">
+              <Package className="w-3.5 h-3.5" /> Pesanan Masuk
+            </button>
+            <button
                 onClick={() => {
                   window.location.hash = '';
                   setIsAdminRoute(false);
