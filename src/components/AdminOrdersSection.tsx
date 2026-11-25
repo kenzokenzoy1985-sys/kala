@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Package, RefreshCw, Save, Eye, X, Check, Phone } from 'lucide-react';
+import { Package, RefreshCw, Save, Eye, X, Check, Phone, Search } from 'lucide-react';
 
 interface AdminOrder {
   id: string;
@@ -42,6 +42,7 @@ export function AdminOrdersSection({ supabase, formatRupiah }: AdminOrdersSectio
   const [orders, setOrders] = useState<AdminOrder[]>([]);
   const [loading, setLoading] = useState(false);
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState<string>('');
   const [drafts, setDrafts] = useState<Record<string, { status: string; courier: string; tracking_number: string; shipping_estimate: string }>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
   const [savedId, setSavedId] = useState<string | null>(null);
@@ -126,7 +127,18 @@ export function AdminOrdersSection({ supabase, formatRupiah }: AdminOrdersSectio
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
   };
 
-  const filtered = filterStatus === 'all' ? orders : orders.filter((o) => o.status === filterStatus);
+  const filtered = orders.filter((o) => {
+    if (filterStatus !== 'all' && o.status !== filterStatus) return false;
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return true;
+    const cleanQ = q.replace(/^#/, '');
+    const code = (o.order_code || ('#' + o.id.slice(0, 6))).toLowerCase();
+    const matchCode = code.includes(q) || code.replace(/^#/, '').includes(cleanQ) || o.id.toLowerCase().includes(cleanQ);
+    const matchCustomer = (o.customer_name || '').toLowerCase().includes(q) || (o.customer_phone || '').toLowerCase().includes(q);
+    const matchResi = (o.tracking_number || '').toLowerCase().includes(q);
+    const matchItem = (o.items || []).some((it) => (it.name || '').toLowerCase().includes(q));
+    return matchCode || matchCustomer || matchResi || matchItem;
+  });
 
   return (
     <div className="space-y-5">
@@ -149,23 +161,44 @@ export function AdminOrdersSection({ supabase, formatRupiah }: AdminOrdersSectio
         </button>
       </div>
 
-      <div className="flex items-center gap-2 overflow-x-auto pb-1">
-        {[
-          { key: 'all', label: `Semua (${orders.length})` },
-          { key: 'pending', label: 'Menunggu' },
-          { key: 'packed', label: 'Dikemas' },
-          { key: 'shipped', label: 'Dikirim' },
-          { key: 'completed', label: 'Selesai' },
-        ].map((tab) => (
-          <button
-            key={tab.key}
-            type="button"
-            onClick={() => setFilterStatus(tab.key)}
-            className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap border transition ${filterStatus === tab.key ? 'bg-black text-white border-black' : 'bg-white text-neutral-600 border-neutral-200 hover:border-neutral-400'}`}
-          >
-            {tab.label}
-          </button>
-        ))}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
+          {[
+            { key: 'all', label: `Semua (${orders.length})` },
+            { key: 'pending', label: 'Menunggu' },
+            { key: 'packed', label: 'Dikemas' },
+            { key: 'shipped', label: 'Dikirim' },
+            { key: 'completed', label: 'Selesai' },
+          ].map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setFilterStatus(tab.key)}
+              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap border transition ${filterStatus === tab.key ? 'bg-black text-white border-black' : 'bg-white text-neutral-600 border-neutral-200 hover:border-neutral-400'}`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+        <div className="relative w-full sm:w-72 shrink-0">
+          <Search className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Cari kode order, nama, HP, resi..."
+            className="w-full bg-white border border-neutral-300 focus:border-black rounded-xl pl-9 pr-8 py-2 text-xs text-neutral-900 placeholder-neutral-400 focus:outline-none transition"
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-700"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
       </div>
 
       {loading && orders.length === 0 ? (
