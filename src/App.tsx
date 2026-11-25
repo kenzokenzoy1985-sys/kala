@@ -31,6 +31,7 @@ interface CartItem extends Product {
   size: SizeKey;
   color?: string;
   quantity: number;
+  selected?: boolean;
 }
 
 const CATEGORY_OPTIONS = [
@@ -93,7 +94,21 @@ export default function App() {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [sortBy, setSortBy] = useState<'default' | 'price-asc' | 'price-desc'>('default');
-  const [cart, setCart] = useState<CartItem[]>([]);
+  const [cart, setCart] = useState<CartItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('ws_store_cart');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [cartToast, setCartToast] = useState<string>('');
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('ws_store_cart', JSON.stringify(cart));
+    } catch {}
+  }, [cart]);
   const [isCartOpen, setIsCartOpen] = useState<boolean>(false);
   const [selectedSizes, setSelectedSizes] = useState<Record<string, SizeKey>>(
     {}
@@ -391,7 +406,11 @@ export default function App() {
     return chosen || firstAvailable || 'M';
   };
 
-  const addToCart = (product: Product, customSize?: SizeKey, customColor?: string) => {
+  const selectedCart = cart.filter((item) => item.selected !== false);
+  const selectedCount = selectedCart.reduce((sum, item) => sum + item.quantity, 0);
+  const allCartSelected = cart.length > 0 && cart.every((item) => item.selected !== false);
+
+  const addToCart = (product: Product, customSize?: SizeKey, customColor?: string, openDrawer = false) => {
     const size = customSize || getActiveSizeForProduct(product);
     const color = customColor !== undefined ? customColor : (selectedColors[product.id] || product.colors?.[0] || '');
     const availableStock = product.stock?.[size] ?? 0;
@@ -409,13 +428,37 @@ export default function App() {
       if (existing) {
         return prev.map((i) =>
           i.id === product.id && i.size === size && (i.color || '') === color
-            ? { ...i, quantity: i.quantity + 1 }
+            ? { ...i, quantity: i.quantity + 1, selected: true }
             : i
         );
       }
-      return [...prev, { ...product, size, color, quantity: 1 }];
+      return [...prev, { ...product, size, color, quantity: 1, selected: true }];
     });
-    setIsCartOpen(true);
+    if (openDrawer) {
+      setIsCartOpen(true);
+    } else {
+      setCartToast(`${product.name} (${size}${color ? ', ' + color : ''}) masuk keranjang`);
+      setTimeout(() => setCartToast(''), 2500);
+    }
+  };
+
+  const buyNow = (product: Product, customSize?: SizeKey, customColor?: string) => {
+    addToCart(product, customSize, customColor, true);
+  };
+
+  const toggleCartItem = (id: string, size: SizeKey, color = '') => {
+    setCart((prev) =>
+      prev.map((item) =>
+        item.id === id && item.size === size && (item.color || '') === color
+          ? { ...item, selected: item.selected === false ? true : false }
+          : item
+      )
+    );
+  };
+
+  const toggleSelectAllCart = () => {
+    const nextState = !allCartSelected;
+    setCart((prev) => prev.map((item) => ({ ...item, selected: nextState })));
   };
 
   const updateQuantity = (id: string, size: SizeKey, delta: number, color = '') => {
@@ -460,6 +503,10 @@ export default function App() {
   };
 
   const handleOpenQris = () => {
+    if (selectedCart.length === 0) {
+      alert('Pilih minimal 1 barang di keranjang untuk di-checkout.');
+      return;
+    }
     if (!customerName.trim() || !customerPhone.trim() || !customerAddress.trim()) {
       alert('Mohon lengkapi Nama, No. HP/WhatsApp, dan Alamat pengiriman terlebih dahulu.');
       return;
@@ -470,13 +517,17 @@ export default function App() {
   };
 
   const handleConfirmQrisOrder = async () => {
+    if (selectedCart.length === 0) {
+      alert('Pilih minimal 1 barang untuk dibayar.');
+      return;
+    }
     if (!proofPreview) {
-      alert('Mohon upload foto bukti transfer QRIS terlebih dahulu.');
+      alert('Mohon upload foto bukti transfer terlebih dahulu.');
       return;
     }
     setIsConfirmingOrder(true);
     const orderCode = 'WS-' + Date.now().toString().slice(-6);
-    const orderItems = cart.map((i) => ({
+    const orderItems = selectedCart.map((i) => ({
       id: i.id, name: i.name, size: i.size, color: i.color || '', quantity: i.quantity, price: i.price
     }));
     const finalTotal = total;
@@ -498,7 +549,7 @@ export default function App() {
           status: 'pending',
         }]);
         const stockChanges: Record<string, StockMap> = {};
-        cart.forEach((item) => {
+        selectedCart.forEach((item) => {
           const prod = products.find((p) => p.id === item.id);
           if (!prod) return;
           if (!stockChanges[item.id]) stockChanges[item.id] = { ...prod.stock };
@@ -534,7 +585,7 @@ export default function App() {
         try { localStorage.setItem('ws_my_order_codes', JSON.stringify(next)); } catch {}
         return next;
       });
-      setCart([]);
+      setCart((prev) => prev.filter((item) => item.selected === false));
       setPromoInput('');
       setPromoApplied(false);
       setIsCartOpen(false);
@@ -546,7 +597,7 @@ export default function App() {
     }
   };
 
-  const subtotal = cart.reduce(
+  const subtotal = selectedCart.reduce(
     (sum, item) => sum + item.price * item.quantity,
     0
   );
@@ -1257,9 +1308,14 @@ export default function App() {
                         );
                       })}
                     </div>
-                    <button type="button" disabled={isSoldOut || activeStock <= 0} onClick={() => addToCart(product, activeSize, activeColor)} className="w-full py-2 rounded-lg bg-[#1E1E25] hover:bg-[#D6C0A0] text-zinc-200 hover:text-[#0B0B0D] disabled:bg-[#141418] disabled:text-zinc-600 border border-[#2A2A33] hover:border-[#D6C0A0] text-xs font-semibold transition cursor-pointer disabled:cursor-not-allowed">
-                      {isSoldOut ? 'Stok Habis' : `+ Keranjang (${activeSize})`}
-                    </button>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <button type="button" disabled={isSoldOut || activeStock <= 0} onClick={() => addToCart(product, activeSize, activeColor, false)} className="py-2 rounded-lg bg-[#1E1E25] hover:bg-[#2A2A33] text-zinc-200 disabled:bg-[#141418] disabled:text-zinc-600 border border-[#2A2A33] text-[11px] font-semibold transition cursor-pointer disabled:cursor-not-allowed">
+                        {isSoldOut ? 'Habis' : '+ Keranjang'}
+                      </button>
+                      <button type="button" disabled={isSoldOut || activeStock <= 0} onClick={() => buyNow(product, activeSize, activeColor)} className="py-2 rounded-lg bg-[#D6C0A0] hover:bg-[#E4D2B7] text-[#0B0B0D] disabled:bg-[#141418] disabled:text-zinc-600 text-[11px] font-bold transition cursor-pointer disabled:cursor-not-allowed">
+                        Beli
+                      </button>
+                    </div>
                   </div>
                 </div>
               );
@@ -1289,9 +1345,19 @@ export default function App() {
         © 2026 {STORE_NAME_FIRST}.{STORE_NAME_SECOND}. All rights reserved.
       </footer>
 
+      {cartToast && (
+        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-4 py-2.5 rounded-full bg-[#1C1C22] border border-[#D6C0A0]/45 text-xs text-white shadow-2xl">
+          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+          <span className="truncate max-w-[200px] sm:max-w-xs">{cartToast}</span>
+          <button type="button" onClick={() => { setCartToast(''); setIsCartOpen(true); }} className="text-[#D6C0A0] font-semibold hover:underline shrink-0 cursor-pointer">
+            Lihat
+          </button>
+        </div>
+      )}
+
       <OrderTrackingModal isOpen={isOrdersOpen} onClose={() => setIsOrdersOpen(false)} supabase={supabase} formatRupiah={formatRupiah} savedOrderCodes={myOrderCodes} />
 
-      <ProductDetailModal product={selectedProductModal} onClose={() => setSelectedProductModal(null)} onAddToCart={(product, size, color) => addToCart(product, size, color)} formatRupiah={formatRupiah} />
+      <ProductDetailModal product={selectedProductModal} onClose={() => setSelectedProductModal(null)} onAddToCart={(product, size, color) => addToCart(product, size, color, false)} onBuyNow={(product, size, color) => buyNow(product, size, color)} formatRupiah={formatRupiah} />
 
       {isCartOpen && (
         <div className="fixed inset-0 z-50 flex justify-end bg-black/75 backdrop-blur-sm" onClick={() => setIsCartOpen(false)}>
@@ -1308,11 +1374,21 @@ export default function App() {
                   <button type="button" onClick={() => setIsCartOpen(false)} className="px-4 py-2 rounded-lg bg-[#D6C0A0] text-[#0B0B0D] text-xs font-semibold">Mulai Belanja</button>
                 </div>
               ) : (
-                <div className="divide-y divide-[#232329] mt-2">
+                <div className="mt-3">
+                  <label className="flex items-center justify-between pb-2.5 mb-1 border-b border-[#232329] cursor-pointer select-none">
+                    <span className="inline-flex items-center gap-2 text-xs font-medium text-zinc-300">
+                      <input type="checkbox" checked={allCartSelected} onChange={toggleSelectAllCart} className="w-4 h-4 accent-[#D6C0A0] rounded cursor-pointer" />
+                      Pilih Semua ({selectedCart.length}/{cart.length})
+                    </span>
+                    <span className="text-[11px] text-zinc-500">{selectedCount} pcs dipilih</span>
+                  </label>
+                  <div className="divide-y divide-[#232329]">
                   {cart.map((item) => {
                     const thumb = item.images?.length ? item.images[0] : item.image || '';
+                    const isChecked = item.selected !== false;
                     return (
-                      <div key={`${item.id}-${item.size}-${item.color || ''}`} className="py-3.5 flex gap-3.5">
+                      <div key={`${item.id}-${item.size}-${item.color || ''}`} className={`py-3.5 flex items-start gap-3 transition ${isChecked ? '' : 'opacity-55'}`}>
+                        <input type="checkbox" checked={isChecked} onChange={() => toggleCartItem(item.id, item.size, item.color || '')} className="mt-1.5 w-4 h-4 accent-[#D6C0A0] rounded shrink-0 cursor-pointer" />
                         <img src={thumb} alt={item.name} className="w-16 h-20 rounded-lg object-cover bg-[#1A1A20] border border-[#232329] shrink-0" />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between gap-2">
@@ -1333,6 +1409,7 @@ export default function App() {
                       </div>
                     );
                   })}
+                  </div>
                 </div>
               )}
             </div>
@@ -1352,8 +1429,8 @@ export default function App() {
                   {promoApplied && <div className="flex justify-between text-[#D6C0A0] font-medium"><span>Diskon OFFICIALWS (5%)</span><span>-{formatRupiah(discount)}</span></div>}
                   <div className="flex justify-between text-sm font-bold text-white pt-1.5 border-t border-[#232329]"><span>Total Bayar</span><span className="font-display text-base text-[#D6C0A0]">{formatRupiah(total)}</span></div>
                 </div>
-                <button type="button" onClick={handleOpenQris} className="w-full py-3 rounded-xl bg-[#D6C0A0] hover:bg-[#E4D2B7] text-[#0B0B0D] font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition cursor-pointer">
-                  <ShoppingBag className="w-4 h-4" /> Lanjut ke Pembayaran
+                <button type="button" disabled={selectedCart.length === 0} onClick={handleOpenQris} className="w-full py-3 rounded-xl bg-[#D6C0A0] hover:bg-[#E4D2B7] disabled:bg-zinc-800 disabled:text-zinc-500 text-[#0B0B0D] font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition cursor-pointer disabled:cursor-not-allowed">
+                  <ShoppingBag className="w-4 h-4" /> {selectedCart.length === 0 ? 'Pilih Barang Dulu' : `Lanjut ke Pembayaran (${selectedCount})`}
                 </button>
                 <button type="button" onClick={handleCheckoutWhatsApp} className="w-full py-2 rounded-lg bg-transparent hover:bg-[#1A1A20] border border-[#27272F] text-zinc-400 hover:text-zinc-200 font-medium text-[11px] flex items-center justify-center gap-1.5 transition cursor-pointer">
                   <Phone className="w-3.5 h-3.5" /> Tanya / Pesan via WhatsApp

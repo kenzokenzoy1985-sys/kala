@@ -24,6 +24,7 @@ interface ProductDetailModalProps {
   product: Product | null;
   onClose: () => void;
   onAddToCart: (product: Product, size: SizeKey, color?: string) => void;
+  onBuyNow?: (product: Product, size: SizeKey, color?: string) => void;
   formatRupiah: (amount: number) => string;
 }
 
@@ -44,7 +45,7 @@ export function getColorHex(name: string): string | null {
   return null;
 }
 
-export function ProductDetailModal({ product, onClose, onAddToCart, formatRupiah }: ProductDetailModalProps) {
+export function ProductDetailModal({ product, onClose, onAddToCart, onBuyNow, formatRupiah }: ProductDetailModalProps) {
   const [activeImgIdx, setActiveImgIdx] = useState(0);
   const [selectedSize, setSelectedSize] = useState<SizeKey>('M');
   const [selectedColor, setSelectedColor] = useState<string>('');
@@ -167,10 +168,13 @@ export function ProductDetailModal({ product, onClose, onAddToCart, formatRupiah
             </div>
           </div>
 
-          <div className="pt-2 border-t border-[#232329]">
-            <button type="button" disabled={isTotalOut || activeStock <= 0} onClick={() => { onAddToCart(product, selectedSize, selectedColor || colors[0] || ''); onClose(); }} className="w-full py-3.5 rounded-xl bg-[#D6C0A0] hover:bg-[#E4D2B7] disabled:bg-zinc-800 disabled:text-zinc-500 text-[#0B0B0D] font-semibold text-sm flex items-center justify-center gap-2 transition cursor-pointer disabled:cursor-not-allowed">
-              <ShoppingBag className="w-4 h-4" />
-              {isTotalOut ? 'Stok Habis' : `Tambah ke Keranjang • ${selectedSize}${selectedColor ? ` (${selectedColor})` : ''}`}
+          <div className="pt-3 border-t border-[#232329] grid grid-cols-2 gap-2.5">
+            <button type="button" disabled={isTotalOut || activeStock <= 0} onClick={() => { onAddToCart(product, selectedSize, selectedColor || colors[0] || ''); onClose(); }} className="py-3 rounded-xl bg-[#1E1E25] hover:bg-[#272730] border border-[#2F2F38] disabled:bg-zinc-900 disabled:text-zinc-600 text-zinc-100 font-semibold text-xs sm:text-sm flex items-center justify-center gap-1.5 transition cursor-pointer disabled:cursor-not-allowed">
+              <ShoppingBag className="w-4 h-4 text-[#D6C0A0]" />
+              {isTotalOut ? 'Habis' : '+ Keranjang'}
+            </button>
+            <button type="button" disabled={isTotalOut || activeStock <= 0} onClick={() => { (onBuyNow || onAddToCart)(product, selectedSize, selectedColor || colors[0] || ''); onClose(); }} className="py-3 rounded-xl bg-[#D6C0A0] hover:bg-[#E4D2B7] disabled:bg-zinc-800 disabled:text-zinc-500 text-[#0B0B0D] font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 transition cursor-pointer disabled:cursor-not-allowed">
+              {isTotalOut ? 'Stok Habis' : 'Beli Sekarang'}
             </button>
           </div>
         </div>
