@@ -1249,8 +1249,7 @@ export default function App() {
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 mt-6">
             {[...filteredProducts].sort((a, b) => sortBy === 'price-asc' ? a.price - b.price : sortBy === 'price-desc' ? b.price - a.price : 0).map((product) => {
-              const activeSize = getActiveSizeForProduct(product);
-              const activeStock = product.stock?.[activeSize] ?? 0;
+              void setSelectedSizes;
               const isSoldOut = SIZES.every((sz) => (product.stock?.[sz] ?? 0) <= 0);
               const images = product.images?.length ? product.images : product.image ? [product.image] : [];
               const origPrice = product.originalPrice ?? (product as any).original_price;
@@ -1258,7 +1257,7 @@ export default function App() {
               const activeColor = selectedColors[product.id] || colors[0] || '';
 
               return (
-                <div key={product.id} className="group rounded-xl bg-[#141418] border border-[#232329] hover:border-[#D6C0A0]/45 overflow-hidden flex flex-col justify-between transition">
+                <div key={product.id} onClick={() => setSelectedProductModal(product)} className="group rounded-xl bg-[#141418] border border-[#232329] hover:border-[#D6C0A0]/45 overflow-hidden flex flex-col justify-between transition cursor-pointer">
                   <div>
                     <div onClick={() => setSelectedProductModal(product)} className="relative aspect-[4/5] bg-[#1A1A20] overflow-hidden cursor-pointer">
                       {images[0] ? (
@@ -1282,41 +1281,27 @@ export default function App() {
                       </div>
                     </div>
                   </div>
-                  <div className="px-3 sm:px-3.5 pb-3.5 pt-1 space-y-2">
-                    {colors.length > 0 && (
-                      <div className="flex flex-wrap gap-1">
-                        {colors.map((c) => {
-                          const hex = getColorHex(c);
-                          const sel = activeColor === c;
-                          return (
-                            <button key={c} type="button" onClick={() => setSelectedColors((p) => ({ ...p, [product.id]: c }))} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium border transition ${sel ? 'border-[#D6C0A0] bg-[#D6C0A0]/15 text-[#D6C0A0]' : 'border-[#27272F] text-zinc-400 hover:text-white'}`}>
-                              {hex && <span className="w-2 h-2 rounded-full border border-white/25" style={{ backgroundColor: hex }} />}
-                              {c}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-                    <div className="grid grid-cols-4 gap-1">
-                      {SIZES.map((sz) => {
-                        const out = (product.stock?.[sz] ?? 0) <= 0;
-                        const selected = activeSize === sz && !out;
+                  {colors.length > 0 && (
+                    <div className="px-3 sm:px-3.5 pb-3.5 pt-1 flex flex-wrap gap-1.5">
+                      {colors.map((c) => {
+                        const hex = getColorHex(c);
                         return (
-                          <button key={sz} type="button" disabled={out} onClick={() => setSelectedSizes((prev) => ({ ...prev, [product.id]: sz }))} className={`py-1 rounded text-[11px] font-semibold border transition ${out ? 'border-[#232329] text-zinc-600 line-through cursor-not-allowed' : selected ? 'border-[#D6C0A0] bg-[#D6C0A0]/15 text-[#D6C0A0]' : 'border-[#27272F] text-zinc-400 hover:text-white hover:border-zinc-500'}`}>
-                            {sz}
-                          </button>
+                          <span
+                            key={c}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedColors((p) => ({ ...p, [product.id]: c }));
+                              setSelectedProductModal(product);
+                            }}
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border transition ${activeColor === c ? 'border-[#D6C0A0]/60 bg-[#D6C0A0]/10 text-[#D6C0A0]' : 'border-[#27272F] text-zinc-400 hover:text-white'}`}
+                          >
+                            {hex && <span className="w-2 h-2 rounded-full border border-white/25" style={{ backgroundColor: hex }} />}
+                            {c}
+                          </span>
                         );
                       })}
                     </div>
-                    <div className="grid grid-cols-2 gap-1.5">
-                      <button type="button" disabled={isSoldOut || activeStock <= 0} onClick={() => addToCart(product, activeSize, activeColor, false)} className="py-2 rounded-lg bg-[#1E1E25] hover:bg-[#2A2A33] text-zinc-200 disabled:bg-[#141418] disabled:text-zinc-600 border border-[#2A2A33] text-[11px] font-semibold transition cursor-pointer disabled:cursor-not-allowed">
-                        {isSoldOut ? 'Habis' : '+ Keranjang'}
-                      </button>
-                      <button type="button" disabled={isSoldOut || activeStock <= 0} onClick={() => buyNow(product, activeSize, activeColor)} className="py-2 rounded-lg bg-[#D6C0A0] hover:bg-[#E4D2B7] text-[#0B0B0D] disabled:bg-[#141418] disabled:text-zinc-600 text-[11px] font-bold transition cursor-pointer disabled:cursor-not-allowed">
-                        Beli
-                      </button>
-                    </div>
-                  </div>
+                  )}
                 </div>
               );
             })}
