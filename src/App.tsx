@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { ShoppingBag, Search, X, Plus, Minus, ArrowRight, Phone, ShieldCheck, Truck, Lock, Trash2, Upload, LogOut, Image as ImageIcon, Save } from 'lucide-react';
+import { ShoppingBag, Search, X, Plus, Minus, ArrowRight, Phone, ShieldCheck, Truck, Lock, Trash2, Upload, LogOut, Image as ImageIcon, Save, QrCode, Copy, Check, CheckCircle2 } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 import {
-  ProductDetailModal,
+  ProductDetailModal, getColorHex,
   type Product,
   type SizeKey,
   SIZES,
@@ -26,6 +26,7 @@ const supabase = isSupabaseConfigured
 
 interface CartItem extends Product {
   size: SizeKey;
+  color?: string;
   quantity: number;
 }
 
@@ -107,6 +108,14 @@ export default function App() {
   }, [isCartOpen]);
   const [customerName, setCustomerName] = useState<string>('');
   const [customerAddress, setCustomerAddress] = useState<string>('');
+  const [customerPhone, setCustomerPhone] = useState<string>('');
+  const [selectedColors, setSelectedColors] = useState<Record<string, string>>({});
+  const [newColors, setNewColors] = useState<string>('');
+  const [isQrisOpen, setIsQrisOpen] = useState<boolean>(false);
+  const [proofPreview, setProofPreview] = useState<string>('');
+  const [isConfirmingOrder, setIsConfirmingOrder] = useState<boolean>(false);
+  const [orderSuccess, setOrderSuccess] = useState<{ id: string; total: number } | null>(null);
+  const [copiedNominal, setCopiedNominal] = useState<boolean>(false);
 
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState<boolean>(false);
   const [passwordInput, setPasswordInput] = useState<string>('');
@@ -171,6 +180,7 @@ export default function App() {
           images: Array.isArray(item.images) ? item.images : [item.image],
           description: item.description || '',
           stock: normalizeStock(item.stock),
+        colors: Array.isArray(item.colors) ? item.colors : [],
         }));
         setProducts(mapped);
 
@@ -277,6 +287,7 @@ export default function App() {
           images: uploadedUrls,
           description: newDescription,
           stock: newStock,
+          colors: newColors.split(',').map((c) => c.trim()).filter(Boolean),
         },
       ]);
 
@@ -287,6 +298,7 @@ export default function App() {
       setNewOriginalPrice('');
       setNewTag('');
       setNewDescription('');
+      setNewColors('');
       setNewStock({ S: 5, M: 10, L: 10, XL: 5 });
       setImageFiles([]);
       setImagePreviews([]);
@@ -352,49 +364,43 @@ export default function App() {
     return chosen || firstAvailable || 'M';
   };
 
-  const addToCart = (product: Product, customSize?: SizeKey) => {
+  const addToCart = (product: Product, customSize?: SizeKey, customColor?: string) => {
     const size = customSize || getActiveSizeForProduct(product);
-    const availableStock = product.stock[size] ?? 0;
-
+    const color = customColor !== undefined ? customColor : (selectedColors[product.id] || product.colors?.[0] || '');
+    const availableStock = product.stock?.[size] ?? 0;
     if (availableStock <= 0) {
-      alert(`Maaf, ukuran ${size} sedang habis!`);
+      alert(`Maaf, stok ukuran ${size} untuk ${product.name} sedang habis.`);
       return;
     }
-
-    const existingInCart = cart.find(
-      (item) => item.id === product.id && item.size === size
-    );
-    const currentQty = existingInCart ? existingInCart.quantity : 0;
-
-    if (currentQty + 1 > availableStock) {
-      alert(`Stok ukuran ${size} cuma tersisa ${availableStock} pcs!`);
-      return;
-    }
-
     setCart((prev) => {
-      if (existingInCart) {
-        return prev.map((item) =>
-          item.id === product.id && item.size === size
-            ? { ...item, quantity: item.quantity + 1 }
-            : item
+      const existing = prev.find((i) => i.id === product.id && i.size === size && (i.color || '') === color);
+      const currentQty = existing ? existing.quantity : 0;
+      if (currentQty + 1 > availableStock) {
+        alert(`Stok ukuran ${size} hanya tersisa ${availableStock} pcs.`);
+        return prev;
+      }
+      if (existing) {
+        return prev.map((i) =>
+          i.id === product.id && i.size === size && (i.color || '') === color
+            ? { ...i, quantity: i.quantity + 1 }
+            : i
         );
       }
-      return [...prev, { ...product, size, quantity: 1 }];
+      return [...prev, { ...product, size, color, quantity: 1 }];
     });
     setIsCartOpen(true);
   };
 
-  const updateQuantity = (id: string, size: SizeKey, delta: number) => {
+  const updateQuantity = (id: string, size: SizeKey, delta: number, color = '') => {
     const targetProduct = products.find((p) => p.id === id);
-    const maxStock = targetProduct ? targetProduct.stock[size] ?? 99 : 99;
-
+    const maxStock = targetProduct?.stock?.[size] ?? 99;
     setCart((prev) =>
       prev
         .map((item) => {
-          if (item.id === id && item.size === size) {
+          if (item.id === id && item.size === size && (item.color || '') === color) {
             const nextQty = item.quantity + delta;
             if (nextQty > maxStock) {
-              alert(`Maksimal stok ukuran ${size} hanya ${maxStock} pcs.`);
+              alert(`Stok ukuran ${size} tersisa ${maxStock} pcs.`);
               return item;
             }
             return { ...item, quantity: nextQty };
@@ -403,6 +409,95 @@ export default function App() {
         })
         .filter((item) => item.quantity > 0)
     );
+  };
+
+  const handleProofFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const maxW = 900;
+        const scale = img.width > maxW ? maxW / img.width : 1;
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
+        setProofPreview(canvas.toDataURL('image/jpeg', 0.72));
+      };
+      img.src = String(reader.result);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleOpenQris = () => {
+    if (!customerName.trim() || !customerPhone.trim() || !customerAddress.trim()) {
+      alert('Mohon lengkapi Nama, No. HP/WhatsApp, dan Alamat pengiriman terlebih dahulu.');
+      return;
+    }
+    setOrderSuccess(null);
+    setProofPreview('');
+    setIsQrisOpen(true);
+  };
+
+  const handleConfirmQrisOrder = async () => {
+    if (!proofPreview) {
+      alert('Mohon upload foto bukti transfer QRIS terlebih dahulu.');
+      return;
+    }
+    setIsConfirmingOrder(true);
+    const orderCode = 'WS-' + Date.now().toString().slice(-6);
+    const orderItems = cart.map((i) => ({
+      id: i.id, name: i.name, size: i.size, color: i.color || '', quantity: i.quantity, price: i.price
+    }));
+    const finalTotal = total;
+
+    try {
+      if (supabase) {
+        await supabase.from('orders').insert([{
+          customer_name: customerName.trim(),
+          customer_phone: customerPhone.trim(),
+          customer_address: customerAddress.trim(),
+          items: orderItems,
+          subtotal,
+          discount: promoApplied ? discount : 0,
+          total: finalTotal,
+          promo_code: promoApplied ? 'OFFICIALWS' : null,
+          proof_url: proofPreview,
+          status: 'pending',
+        }]);
+      }
+
+      await fetch('/api/notify-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId: orderCode,
+          customerName: customerName.trim(),
+          customerPhone: customerPhone.trim(),
+          customerAddress: customerAddress.trim(),
+          items: orderItems,
+          subtotal,
+          discount: promoApplied ? discount : 0,
+          total: finalTotal,
+          promoCode: promoApplied ? 'OFFICIALWS' : '',
+          proofBase64: proofPreview,
+        }),
+      });
+
+      setOrderSuccess({ id: orderCode, total: finalTotal });
+      setCart([]);
+      setPromoInput('');
+      setPromoApplied(false);
+      setIsCartOpen(false);
+    } catch (err) {
+      console.error(err);
+      alert('Terjadi kendala saat mengirim pesanan. Coba klik lagi ya.');
+    } finally {
+      setIsConfirmingOrder(false);
+    }
   };
 
   const subtotal = cart.reduce(
@@ -828,6 +923,10 @@ export default function App() {
                   className="w-full px-3.5 py-2 border border-neutral-300 rounded-xl text-sm focus:outline-none focus:border-black"
                 />
               </div>
+                  <div>
+                    <label className="block text-xs font-medium text-neutral-600 mb-1">Pilihan Warna (pisahkan dengan koma)</label>
+                    <input type="text" value={newColors} onChange={(e) => setNewColors(e.target.value)} placeholder="Contoh: Hitam, Putih, Navy, Cream" className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-sm text-neutral-900" />
+                  </div>
 
               <button
                 type="submit"
@@ -935,7 +1034,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#0B0B0D] text-[#F5F5F7] flex flex-col">
       <div className="bg-[#141418] border-b border-[#232329] text-[11px] text-zinc-400 py-2 px-4 text-center">
-        Pengiriman seluruh Indonesia • Gunakan kode <span className="text-[#D6C0A0] font-semibold tracking-wide">OFFICIALWS</span> di keranjang untuk diskon 5%
+        Pengiriman seluruh Indonesia • Pembayaran QRIS Instant • Kode <span className="text-[#D6C0A0] font-semibold tracking-wide">OFFICIALWS</span> diskon 5%
       </div>
 
       <header className="sticky top-0 z-30 bg-[#0B0B0D]/90 backdrop-blur-md border-b border-[#232329]">
@@ -943,17 +1042,11 @@ export default function App() {
           <a href="#katalog" onClick={() => { setSelectedCategory('all'); setSearchQuery(''); }} className="font-display text-lg sm:text-xl font-bold tracking-tight text-white shrink-0">
             {STORE_NAME_FIRST}<span className="text-[#D6C0A0]">.</span>{STORE_NAME_SECOND}
           </a>
-
           <div className="relative flex-1 max-w-md">
             <Search className="w-4 h-4 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Cari kaos, hoodie, celana..." className="w-full bg-[#141418] border border-[#232329] focus:border-[#D6C0A0] rounded-full pl-9 pr-8 py-1.5 text-xs sm:text-sm text-white placeholder-zinc-500 focus:outline-none transition" />
-            {searchQuery && (
-              <button type="button" onClick={() => setSearchQuery('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white">
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
+            {searchQuery && <button type="button" onClick={() => setSearchQuery('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white"><X className="w-3.5 h-3.5" /></button>}
           </div>
-
           <button type="button" onClick={() => setIsCartOpen(true)} className="relative shrink-0 inline-flex items-center gap-2 px-3.5 py-2 rounded-full bg-[#141418] hover:bg-[#1C1C22] border border-[#27272F] hover:border-[#D6C0A0]/60 text-xs sm:text-sm font-medium text-white transition">
             <ShoppingBag className="w-4 h-4 text-[#D6C0A0]" />
             <span className="hidden sm:inline">Keranjang</span>
@@ -967,10 +1060,10 @@ export default function App() {
           <div>
             <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-[#D6C0A0]/10 border border-[#D6C0A0]/25 text-[#D6C0A0] text-[11px] font-medium mb-2.5">
               <span className="w-1.5 h-1.5 rounded-full bg-[#D6C0A0]" />
-              Ready Stock • Order Langsung via WhatsApp
+              Ready Stock • Pembayaran QRIS Semua Bank &amp; E-Wallet
             </div>
             <h1 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-white">Daily Streetwear &amp; Essentials</h1>
-            <p className="text-xs sm:text-sm text-zinc-400 mt-1 max-w-xl">Pilih artikel favorit lo, tentukan ukuran, dan checkout cepat tanpa ribet.</p>
+            <p className="text-xs sm:text-sm text-zinc-400 mt-1 max-w-xl">Pilih artikel favorit, warna, dan ukuran lo lalu bayar cepat pakai QRIS.</p>
           </div>
           <a href="#katalog" className="self-start sm:self-center inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#D6C0A0] hover:bg-[#E4D2B7] text-[#0B0B0D] font-semibold text-xs sm:text-sm transition shrink-0">
             Lihat Katalog <ArrowRight className="w-4 h-4" />
@@ -981,14 +1074,11 @@ export default function App() {
       <main id="katalog" className="max-w-6xl w-full mx-auto px-4 sm:px-6 py-8 flex-1">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-6 border-b border-[#232329]">
           <div className="flex items-center gap-2 overflow-x-auto pb-1">
-            {FILTER_CATEGORIES.map((cat) => {
-              const active = selectedCategory === cat.key;
-              return (
-                <button key={cat.key} type="button" onClick={() => setSelectedCategory(cat.key)} className={`px-3.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition ${active ? 'bg-[#D6C0A0] text-[#0B0B0D] font-semibold' : 'bg-[#141418] text-zinc-400 hover:text-white border border-[#232329]'}`}>
-                  {cat.label}
-                </button>
-              );
-            })}
+            {FILTER_CATEGORIES.map((cat) => (
+              <button key={cat.key} type="button" onClick={() => setSelectedCategory(cat.key)} className={`px-3.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition ${selectedCategory === cat.key ? 'bg-[#D6C0A0] text-[#0B0B0D] font-semibold' : 'bg-[#141418] text-zinc-400 hover:text-white border border-[#232329]'}`}>
+                {cat.label}
+              </button>
+            ))}
           </div>
           <div className="flex items-center justify-between sm:justify-end gap-3 text-xs text-zinc-400">
             <span>{filteredProducts.length} produk</span>
@@ -1005,14 +1095,13 @@ export default function App() {
             {[1, 2, 3, 4].map((n) => (
               <div key={n} className="rounded-xl bg-[#141418] border border-[#232329] overflow-hidden animate-pulse">
                 <div className="aspect-[4/5] bg-[#1C1C22]" />
-                <div className="p-3.5 space-y-2"><div className="h-3 bg-[#1C1C22] rounded w-1/3" /><div className="h-4 bg-[#1C1C22] rounded w-3/4" /><div className="h-4 bg-[#1C1C22] rounded w-1/2" /></div>
+                <div className="p-3.5 space-y-2"><div className="h-3 bg-[#1C1C22] rounded w-1/3" /><div className="h-4 bg-[#1C1C22] rounded w-3/4" /></div>
               </div>
             ))}
           </div>
         ) : filteredProducts.length === 0 ? (
           <div className="text-center py-16 rounded-2xl bg-[#141418] border border-[#232329] mt-6 px-4">
             <p className="text-sm font-medium text-zinc-300">Produk tidak ditemukan</p>
-            <p className="text-xs text-zinc-500 mt-1">Coba kata kunci lain atau tampilkan semua kategori.</p>
             <button type="button" onClick={() => { setSelectedCategory('all'); setSearchQuery(''); }} className="mt-4 px-4 py-2 rounded-lg bg-[#D6C0A0] text-[#0B0B0D] text-xs font-semibold">Reset Filter</button>
           </div>
         ) : (
@@ -1021,8 +1110,11 @@ export default function App() {
               const activeSize = getActiveSizeForProduct(product);
               const activeStock = product.stock?.[activeSize] ?? 0;
               const isSoldOut = SIZES.every((sz) => (product.stock?.[sz] ?? 0) <= 0);
-              const images = product.images?.length ? product.images : (product as any).image ? [(product as any).image] : [];
-              const origPrice = (product as any).originalPrice ?? (product as any).original_price;
+              const images = product.images?.length ? product.images : product.image ? [product.image] : [];
+              const origPrice = product.originalPrice ?? (product as any).original_price;
+              const colors = product.colors || [];
+              const activeColor = selectedColors[product.id] || colors[0] || '';
+
               return (
                 <div key={product.id} className="group rounded-xl bg-[#141418] border border-[#232329] hover:border-[#D6C0A0]/45 overflow-hidden flex flex-col justify-between transition">
                   <div>
@@ -1034,11 +1126,8 @@ export default function App() {
                       )}
                       {images[1] && <img src={images[1]} alt={`${product.name} - 2`} className="absolute inset-0 w-full h-full object-cover opacity-0 group-hover:opacity-100 group-hover:scale-105 transition duration-500" />}
                       <div className="absolute top-2.5 left-2.5 flex flex-col gap-1">
-                        {isSoldOut ? (
-                          <span className="px-2 py-0.5 rounded bg-black/85 text-zinc-300 text-[10px] font-bold uppercase border border-white/10">Habis</span>
-                        ) : origPrice && origPrice > product.price ? (
-                          <span className="px-2 py-0.5 rounded bg-[#D6C0A0] text-[#0B0B0D] text-[10px] font-bold uppercase">Sale</span>
-                        ) : null}
+                        {isSoldOut ? <span className="px-2 py-0.5 rounded bg-black/85 text-zinc-300 text-[10px] font-bold uppercase border border-white/10">Habis</span>
+                        : origPrice && origPrice > product.price ? <span className="px-2 py-0.5 rounded bg-[#D6C0A0] text-[#0B0B0D] text-[10px] font-bold uppercase">Sale</span> : null}
                       </div>
                       {images.length > 1 && <span className="absolute bottom-2 right-2 px-1.5 py-0.5 rounded bg-black/70 text-[10px] text-zinc-300">1/{images.length}</span>}
                     </div>
@@ -1052,6 +1141,20 @@ export default function App() {
                     </div>
                   </div>
                   <div className="px-3 sm:px-3.5 pb-3.5 pt-1 space-y-2">
+                    {colors.length > 0 && (
+                      <div className="flex flex-wrap gap-1">
+                        {colors.map((c) => {
+                          const hex = getColorHex(c);
+                          const sel = activeColor === c;
+                          return (
+                            <button key={c} type="button" onClick={() => setSelectedColors((p) => ({ ...p, [product.id]: c }))} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium border transition ${sel ? 'border-[#D6C0A0] bg-[#D6C0A0]/15 text-[#D6C0A0]' : 'border-[#27272F] text-zinc-400 hover:text-white'}`}>
+                              {hex && <span className="w-2 h-2 rounded-full border border-white/25" style={{ backgroundColor: hex }} />}
+                              {c}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
                     <div className="grid grid-cols-4 gap-1">
                       {SIZES.map((sz) => {
                         const out = (product.stock?.[sz] ?? 0) <= 0;
@@ -1063,7 +1166,7 @@ export default function App() {
                         );
                       })}
                     </div>
-                    <button type="button" disabled={isSoldOut || activeStock <= 0} onClick={() => addToCart(product, activeSize)} className="w-full py-2 rounded-lg bg-[#1E1E25] hover:bg-[#D6C0A0] text-zinc-200 hover:text-[#0B0B0D] disabled:bg-[#141418] disabled:text-zinc-600 border border-[#2A2A33] hover:border-[#D6C0A0] text-xs font-semibold transition cursor-pointer disabled:cursor-not-allowed">
+                    <button type="button" disabled={isSoldOut || activeStock <= 0} onClick={() => addToCart(product, activeSize, activeColor)} className="w-full py-2 rounded-lg bg-[#1E1E25] hover:bg-[#D6C0A0] text-zinc-200 hover:text-[#0B0B0D] disabled:bg-[#141418] disabled:text-zinc-600 border border-[#2A2A33] hover:border-[#D6C0A0] text-xs font-semibold transition cursor-pointer disabled:cursor-not-allowed">
                       {isSoldOut ? 'Stok Habis' : `+ Keranjang (${activeSize})`}
                     </button>
                   </div>
@@ -1085,8 +1188,8 @@ export default function App() {
             <div><p className="font-semibold text-white">Kualitas Terjamin</p><p className="text-zinc-400 mt-0.5">Bahan nyaman dipakai harian dan dicek ulang sebelum dikirim.</p></div>
           </div>
           <div className="flex items-start gap-3">
-            <div className="w-8 h-8 rounded-lg bg-[#D6C0A0]/10 border border-[#D6C0A0]/25 text-[#D6C0A0] flex items-center justify-center shrink-0"><Phone className="w-4 h-4" /></div>
-            <div><p className="font-semibold text-white">Order Mudah via WhatsApp</p><p className="text-zinc-400 mt-0.5">Rincian pesanan otomatis masuk ke chat admin untuk konfirmasi stok &amp; ongkir.</p></div>
+            <div className="w-8 h-8 rounded-lg bg-[#D6C0A0]/10 border border-[#D6C0A0]/25 text-[#D6C0A0] flex items-center justify-center shrink-0"><QrCode className="w-4 h-4" /></div>
+            <div><p className="font-semibold text-white">Bayar Mudah via QRIS</p><p className="text-zinc-400 mt-0.5">Scan dari GoPay, BCA, Mandiri, BRI, OVO, DANA, &amp; semua e-wallet.</p></div>
           </div>
         </div>
       </section>
@@ -1095,7 +1198,7 @@ export default function App() {
         © 2026 {STORE_NAME_FIRST}.{STORE_NAME_SECOND}. All rights reserved.
       </footer>
 
-      <ProductDetailModal product={selectedProductModal} onClose={() => setSelectedProductModal(null)} onAddToCart={(product, size) => addToCart(product, size)} formatRupiah={formatRupiah} />
+      <ProductDetailModal product={selectedProductModal} onClose={() => setSelectedProductModal(null)} onAddToCart={(product, size, color) => addToCart(product, size, color)} formatRupiah={formatRupiah} />
 
       {isCartOpen && (
         <div className="fixed inset-0 z-50 flex justify-end bg-black/75 backdrop-blur-sm" onClick={() => setIsCartOpen(false)}>
@@ -1114,21 +1217,24 @@ export default function App() {
               ) : (
                 <div className="divide-y divide-[#232329] mt-2">
                   {cart.map((item) => {
-                    const thumb = item.images?.length ? item.images[0] : (item as any).image || '';
+                    const thumb = item.images?.length ? item.images[0] : item.image || '';
                     return (
-                      <div key={`${item.id}-${item.size}`} className="py-3.5 flex gap-3.5">
+                      <div key={`${item.id}-${item.size}-${item.color || ''}`} className="py-3.5 flex gap-3.5">
                         <img src={thumb} alt={item.name} className="w-16 h-20 rounded-lg object-cover bg-[#1A1A20] border border-[#232329] shrink-0" />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between gap-2">
                             <h4 className="text-xs sm:text-sm font-semibold text-white truncate">{item.name}</h4>
-                            <button type="button" onClick={() => updateQuantity(item.id, item.size, -item.quantity)} title="Hapus item" className="text-zinc-500 hover:text-red-400 transition"><Trash2 className="w-3.5 h-3.5" /></button>
+                            <button type="button" onClick={() => updateQuantity(item.id, item.size, -item.quantity, item.color || '')} className="text-zinc-500 hover:text-red-400 transition"><Trash2 className="w-3.5 h-3.5" /></button>
                           </div>
-                          <p className="text-[11px] text-zinc-400 mt-0.5">Ukuran: <span className="text-zinc-200 font-medium">{item.size}</span></p>
+                          <p className="text-[11px] text-zinc-400 mt-0.5">
+                            Size: <span className="text-zinc-200 font-medium">{item.size}</span>
+                            {item.color && <> • Warna: <span className="text-zinc-200 font-medium">{item.color}</span></>}
+                          </p>
                           <p className="font-display text-xs sm:text-sm font-bold text-[#D6C0A0] mt-1">{formatRupiah(item.price)}</p>
                           <div className="inline-flex items-center gap-2.5 mt-2 bg-[#18181E] border border-[#27272F] rounded-lg px-2 py-1">
-                            <button type="button" onClick={() => updateQuantity(item.id, item.size, -1)} className="text-zinc-400 hover:text-white"><Minus className="w-3 h-3" /></button>
+                            <button type="button" onClick={() => updateQuantity(item.id, item.size, -1, item.color || '')} className="text-zinc-400 hover:text-white"><Minus className="w-3 h-3" /></button>
                             <span className="text-xs font-semibold w-4 text-center">{item.quantity}</span>
-                            <button type="button" onClick={() => updateQuantity(item.id, item.size, 1)} className="text-zinc-400 hover:text-white"><Plus className="w-3 h-3" /></button>
+                            <button type="button" onClick={() => updateQuantity(item.id, item.size, 1, item.color || '')} className="text-zinc-400 hover:text-white"><Plus className="w-3 h-3" /></button>
                           </div>
                         </div>
                       </div>
@@ -1139,22 +1245,91 @@ export default function App() {
             </div>
 
             {cart.length > 0 && (
-              <div className="border-t border-[#232329] pt-4 mt-4 space-y-3">
+              <div className="border-t border-[#232329] pt-4 mt-4 space-y-2.5">
                 <div className="flex gap-2">
                   <input type="text" autoComplete="off" name="promo_code_entry" value={promoInput} onChange={(e) => { setPromoInput(e.target.value); if (promoApplied) setPromoApplied(false); }} placeholder="Kode promo" className="flex-1 bg-[#18181E] border border-[#2A2A33] focus:border-[#D6C0A0] rounded-lg px-3 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none" />
                   <button type="button" onClick={() => { if (promoInput.trim().toUpperCase() === 'OFFICIALWS') { setPromoApplied(true); } else { setPromoApplied(false); if (promoInput.trim()) alert('Kode promo tidak valid!'); } }} className="px-4 py-2 rounded-lg bg-[#D6C0A0] hover:bg-[#E4D2B7] text-[#0B0B0D] text-xs font-semibold transition">Pakai</button>
                 </div>
                 <input type="text" value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Nama penerima..." className="w-full bg-[#18181E] border border-[#2A2A33] focus:border-[#D6C0A0] rounded-lg px-3 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none" />
+                <input type="tel" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} placeholder="No. HP / WhatsApp penerima..." className="w-full bg-[#18181E] border border-[#2A2A33] focus:border-[#D6C0A0] rounded-lg px-3 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none" />
                 <input type="text" value={customerAddress} onChange={(e) => setCustomerAddress(e.target.value)} placeholder="Alamat lengkap pengiriman..." className="w-full bg-[#18181E] border border-[#2A2A33] focus:border-[#D6C0A0] rounded-lg px-3 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none" />
                 <div className="space-y-1.5 pt-1 text-xs">
                   <div className="flex justify-between text-zinc-400"><span>Subtotal</span><span>{formatRupiah(subtotal)}</span></div>
                   {promoApplied && <div className="flex justify-between text-[#D6C0A0] font-medium"><span>Diskon OFFICIALWS (5%)</span><span>-{formatRupiah(discount)}</span></div>}
-                  <div className="flex justify-between text-sm font-bold text-white pt-1.5 border-t border-[#232329]"><span>Total</span><span className="font-display text-base text-[#D6C0A0]">{formatRupiah(total)}</span></div>
+                  <div className="flex justify-between text-sm font-bold text-white pt-1.5 border-t border-[#232329]"><span>Total Bayar</span><span className="font-display text-base text-[#D6C0A0]">{formatRupiah(total)}</span></div>
                 </div>
-                <button type="button" onClick={handleCheckoutWhatsApp} className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 transition cursor-pointer">
-                  <Phone className="w-4 h-4" /> Pesan via WhatsApp
+                <button type="button" onClick={handleOpenQris} className="w-full py-3 rounded-xl bg-[#D6C0A0] hover:bg-[#E4D2B7] text-[#0B0B0D] font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition cursor-pointer">
+                  <QrCode className="w-4 h-4" /> Bayar via QRIS
+                </button>
+                <button type="button" onClick={handleCheckoutWhatsApp} className="w-full py-2 rounded-lg bg-transparent hover:bg-[#1A1A20] border border-[#27272F] text-zinc-400 hover:text-zinc-200 font-medium text-[11px] flex items-center justify-center gap-1.5 transition cursor-pointer">
+                  <Phone className="w-3.5 h-3.5" /> Tanya / Pesan via WhatsApp
                 </button>
               </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {isQrisOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm p-4" onClick={() => !isConfirmingOrder && setIsQrisOpen(false)}>
+          <div className="w-full max-w-md max-h-[92vh] overflow-y-auto rounded-2xl bg-[#141418] border border-[#27272F] p-5 sm:p-6 text-[#F5F5F7] shadow-2xl space-y-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-[#232329] pb-3">
+              <div className="flex items-center gap-2">
+                <QrCode className="w-5 h-5 text-[#D6C0A0]" />
+                <h3 className="font-display text-base sm:text-lg font-bold text-white">Pembayaran QRIS</h3>
+              </div>
+              <button type="button" onClick={() => setIsQrisOpen(false)} className="w-8 h-8 rounded-full bg-[#1C1C22] text-zinc-400 hover:text-white flex items-center justify-center"><X className="w-4 h-4" /></button>
+            </div>
+
+            {orderSuccess ? (
+              <div className="py-6 text-center space-y-3">
+                <CheckCircle2 className="w-14 h-14 text-emerald-400 mx-auto" />
+                <h4 className="font-display text-xl font-bold text-white">Pesanan Diterima!</h4>
+                <p className="text-xs text-zinc-400">Kode Order: <strong className="text-[#D6C0A0]">{orderSuccess.id}</strong></p>
+                <p className="text-xs text-zinc-400 leading-relaxed">
+                  Bukti transfer sebesar <strong className="text-white">{formatRupiah(orderSuccess.total)}</strong> sudah otomatis dikirim ke admin. Kami akan segera memproses pesanan kamu.
+                </p>
+                <button type="button" onClick={() => setIsQrisOpen(false)} className="mt-2 w-full py-2.5 rounded-xl bg-[#D6C0A0] text-[#0B0B0D] font-semibold text-xs">
+                  Kembali ke Toko
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="rounded-xl bg-[#0E0E12] border border-[#232329] p-3.5 flex items-center justify-between">
+                  <div>
+                    <p className="text-[11px] text-zinc-400">Total yang harus dibayar</p>
+                    <p className="font-display text-xl font-bold text-[#D6C0A0]">{formatRupiah(total)}</p>
+                  </div>
+                  <button type="button" onClick={() => { navigator.clipboard?.writeText(String(total)); setCopiedNominal(true); setTimeout(() => setCopiedNominal(false), 1800); }} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1A1A20] border border-[#2A2A33] hover:border-[#D6C0A0] text-[11px] font-medium text-zinc-200 transition">
+                    {copiedNominal ? <><Check className="w-3.5 h-3.5 text-emerald-400" /> Tersalin</> : <><Copy className="w-3.5 h-3.5" /> Salin Nominal</>}
+                  </button>
+                </div>
+
+                <div className="bg-white rounded-xl p-3 flex flex-col items-center">
+                  <img src="/qris.png" alt="QRIS WS.STORE" className="w-full max-w-[270px] rounded-lg object-contain" />
+                  <p className="text-[11px] text-zinc-600 mt-2 text-center">Scan QRIS di atas pakai aplikasi bank / e-wallet apa saja</p>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="block text-xs font-medium text-zinc-300">Upload Bukti Transfer (Wajib)</label>
+                  <label className="flex flex-col items-center justify-center w-full border-2 border-dashed border-[#2A2A33] hover:border-[#D6C0A0]/70 rounded-xl p-4 cursor-pointer bg-[#0E0E12] transition">
+                    {proofPreview ? (
+                      <img src={proofPreview} alt="Bukti Transfer" className="max-h-44 rounded-lg object-contain" />
+                    ) : (
+                      <div className="text-center space-y-1">
+                        <Upload className="w-5 h-5 text-[#D6C0A0] mx-auto" />
+                        <p className="text-xs text-zinc-300 font-medium">Pilih foto / screenshot bukti bayar</p>
+                        <p className="text-[10px] text-zinc-500">JPG / PNG</p>
+                      </div>
+                    )}
+                    <input type="file" accept="image/*" onChange={handleProofFileChange} className="hidden" />
+                  </label>
+                </div>
+
+                <button type="button" disabled={isConfirmingOrder || !proofPreview} onClick={handleConfirmQrisOrder} className="w-full py-3 rounded-xl bg-[#D6C0A0] hover:bg-[#E4D2B7] disabled:bg-zinc-800 disabled:text-zinc-500 text-[#0B0B0D] font-bold text-xs sm:text-sm transition cursor-pointer disabled:cursor-not-allowed">
+                  {isConfirmingOrder ? 'Mengirim Pesanan...' : 'Konfirmasi Pembayaran QRIS'}
+                </button>
+              </>
             )}
           </div>
         </div>

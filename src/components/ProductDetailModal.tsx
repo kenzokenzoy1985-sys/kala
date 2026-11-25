@@ -17,18 +17,37 @@ export interface Product {
   images?: string[];
   description: string;
   stock: StockMap;
+  colors?: string[];
 }
 
 interface ProductDetailModalProps {
   product: Product | null;
   onClose: () => void;
-  onAddToCart: (product: Product, size: SizeKey) => void;
+  onAddToCart: (product: Product, size: SizeKey, color?: string) => void;
   formatRupiah: (amount: number) => string;
+}
+
+const COLOR_HEX: Record<string, string> = {
+  hitam: '#18181b', black: '#18181b', putih: '#f4f4f5', white: '#f4f4f5',
+  navy: '#1e3a5f', biru: '#2563eb', blue: '#2563eb', abu: '#71717a',
+  grey: '#71717a', gray: '#71717a', cream: '#e7dcc8', krem: '#e7dcc8',
+  beige: '#d6c6a8', olive: '#556b2f', hijau: '#16a34a', green: '#16a34a',
+  maroon: '#7f1d1d', merah: '#dc2626', red: '#dc2626', coklat: '#78350f',
+  brown: '#78350f', khaki: '#c3b091', pink: '#ec4899', kuning: '#eab308',
+};
+
+export function getColorHex(name: string): string | null {
+  const k = name.trim().toLowerCase();
+  for (const key of Object.keys(COLOR_HEX)) {
+    if (k.includes(key)) return COLOR_HEX[key];
+  }
+  return null;
 }
 
 export function ProductDetailModal({ product, onClose, onAddToCart, formatRupiah }: ProductDetailModalProps) {
   const [activeImgIdx, setActiveImgIdx] = useState(0);
   const [selectedSize, setSelectedSize] = useState<SizeKey>('M');
+  const [selectedColor, setSelectedColor] = useState<string>('');
   const [showSizeChart, setShowSizeChart] = useState(false);
 
   useEffect(() => {
@@ -36,14 +55,16 @@ export function ProductDetailModal({ product, onClose, onAddToCart, formatRupiah
     setActiveImgIdx(0);
     setShowSizeChart(false);
     setSelectedSize(SIZES.find((s) => (product.stock?.[s] ?? 0) > 0) || 'M');
+    setSelectedColor(product.colors?.[0] || '');
   }, [product]);
 
   if (!product) return null;
 
-  const images = product.images?.length ? product.images : (product as any).image ? [(product as any).image] : [];
-  const origPrice = (product as any).originalPrice ?? (product as any).original_price;
+  const images = product.images?.length ? product.images : product.image ? [product.image] : [];
+  const origPrice = product.originalPrice ?? (product as any).original_price;
   const activeStock = product.stock?.[selectedSize] ?? 0;
   const isTotalOut = SIZES.every((s) => (product.stock?.[s] ?? 0) <= 0);
+  const colors = product.colors || [];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-3 sm:p-5" onClick={onClose}>
@@ -61,12 +82,8 @@ export function ProductDetailModal({ product, onClose, onAddToCart, formatRupiah
             )}
             {images.length > 1 && (
               <>
-                <button type="button" onClick={() => setActiveImgIdx((p) => (p === 0 ? images.length - 1 : p - 1))} className="absolute left-2.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-[#0B0B0D]/75 border border-white/10 text-white flex items-center justify-center hover:bg-[#0B0B0D]">
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                <button type="button" onClick={() => setActiveImgIdx((p) => (p === images.length - 1 ? 0 : p + 1))} className="absolute right-2.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-[#0B0B0D]/75 border border-white/10 text-white flex items-center justify-center hover:bg-[#0B0B0D]">
-                  <ChevronRight className="w-4 h-4" />
-                </button>
+                <button type="button" onClick={() => setActiveImgIdx((p) => (p === 0 ? images.length - 1 : p - 1))} className="absolute left-2.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-[#0B0B0D]/75 border border-white/10 text-white flex items-center justify-center hover:bg-[#0B0B0D]"><ChevronLeft className="w-4 h-4" /></button>
+                <button type="button" onClick={() => setActiveImgIdx((p) => (p === images.length - 1 ? 0 : p + 1))} className="absolute right-2.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-[#0B0B0D]/75 border border-white/10 text-white flex items-center justify-center hover:bg-[#0B0B0D]"><ChevronRight className="w-4 h-4" /></button>
               </>
             )}
           </div>
@@ -92,6 +109,26 @@ export function ProductDetailModal({ product, onClose, onAddToCart, formatRupiah
               </div>
             </div>
             {product.description && <p className="text-xs sm:text-sm text-zinc-400 leading-relaxed border-t border-[#232329] pt-3">{product.description}</p>}
+
+            {colors.length > 0 && (
+              <div className="space-y-2 pt-1">
+                <span className="text-xs font-medium text-zinc-300">
+                  Pilih Warna: <strong className="text-white">{selectedColor || colors[0]}</strong>
+                </span>
+                <div className="flex flex-wrap gap-2">
+                  {colors.map((c) => {
+                    const hex = getColorHex(c);
+                    const active = (selectedColor || colors[0]) === c;
+                    return (
+                      <button key={c} type="button" onClick={() => setSelectedColor(c)} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition ${active ? 'border-[#D6C0A0] bg-[#D6C0A0]/15 text-[#D6C0A0]' : 'border-[#2A2A32] bg-[#1A1A20] text-zinc-300 hover:border-zinc-500'}`}>
+                        {hex && <span className="w-3 h-3 rounded-full border border-white/25 shrink-0" style={{ backgroundColor: hex }} />}
+                        {c}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             <div className="space-y-2 pt-1">
               <div className="flex items-center justify-between">
@@ -131,9 +168,9 @@ export function ProductDetailModal({ product, onClose, onAddToCart, formatRupiah
           </div>
 
           <div className="pt-2 border-t border-[#232329]">
-            <button type="button" disabled={isTotalOut || activeStock <= 0} onClick={() => { onAddToCart(product, selectedSize); onClose(); }} className="w-full py-3.5 rounded-xl bg-[#D6C0A0] hover:bg-[#E4D2B7] disabled:bg-zinc-800 disabled:text-zinc-500 text-[#0B0B0D] font-semibold text-sm flex items-center justify-center gap-2 transition cursor-pointer disabled:cursor-not-allowed">
+            <button type="button" disabled={isTotalOut || activeStock <= 0} onClick={() => { onAddToCart(product, selectedSize, selectedColor || colors[0] || ''); onClose(); }} className="w-full py-3.5 rounded-xl bg-[#D6C0A0] hover:bg-[#E4D2B7] disabled:bg-zinc-800 disabled:text-zinc-500 text-[#0B0B0D] font-semibold text-sm flex items-center justify-center gap-2 transition cursor-pointer disabled:cursor-not-allowed">
               <ShoppingBag className="w-4 h-4" />
-              {isTotalOut ? 'Stok Habis' : `Tambah ke Keranjang • ${selectedSize}`}
+              {isTotalOut ? 'Stok Habis' : `Tambah ke Keranjang • ${selectedSize}${selectedColor ? ` (${selectedColor})` : ''}`}
             </button>
           </div>
         </div>
