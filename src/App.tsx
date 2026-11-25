@@ -1087,7 +1087,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#0B0B0D] text-[#F5F5F7] flex flex-col">
       <div className="bg-[#141418] border-b border-[#232329] text-[11px] text-zinc-400 py-2 px-4 text-center">
-        Pengiriman seluruh Indonesia • Pembayaran QRIS Instant • Kode <span className="text-[#D6C0A0] font-semibold tracking-wide">OFFICIALWS</span> diskon 5%
+        Pengiriman seluruh Indonesia • Ready Stock • Gunakan kode <span className="text-[#D6C0A0] font-semibold tracking-wide">OFFICIALWS</span> untuk diskon 5%
       </div>
 
       <header className="sticky top-0 z-30 bg-[#0B0B0D]/90 backdrop-blur-md border-b border-[#232329]">
@@ -1120,10 +1120,10 @@ export default function App() {
           <div>
             <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-[#D6C0A0]/10 border border-[#D6C0A0]/25 text-[#D6C0A0] text-[11px] font-medium mb-2.5">
               <span className="w-1.5 h-1.5 rounded-full bg-[#D6C0A0]" />
-              Ready Stock • Pembayaran QRIS Semua Bank &amp; E-Wallet
+              New Collection • Ready Stock
             </div>
             <h1 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-white">Daily Streetwear &amp; Essentials</h1>
-            <p className="text-xs sm:text-sm text-zinc-400 mt-1 max-w-xl">Pilih artikel favorit, warna, dan ukuran lo lalu bayar cepat pakai QRIS.</p>
+            <p className="text-xs sm:text-sm text-zinc-400 mt-1 max-w-xl">Koleksi harian dengan potongan bersih dan material pilihan. Temukan warna dan ukuran yang pas untuk gaya kamu.</p>
           </div>
           <a href="#katalog" className="self-start sm:self-center inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#D6C0A0] hover:bg-[#E4D2B7] text-[#0B0B0D] font-semibold text-xs sm:text-sm transition shrink-0">
             Lihat Katalog <ArrowRight className="w-4 h-4" />
@@ -1249,7 +1249,7 @@ export default function App() {
           </div>
           <div className="flex items-start gap-3">
             <div className="w-8 h-8 rounded-lg bg-[#D6C0A0]/10 border border-[#D6C0A0]/25 text-[#D6C0A0] flex items-center justify-center shrink-0"><QrCode className="w-4 h-4" /></div>
-            <div><p className="font-semibold text-white">Bayar Mudah via QRIS</p><p className="text-zinc-400 mt-0.5">Scan dari GoPay, BCA, Mandiri, BRI, OVO, DANA, &amp; semua e-wallet.</p></div>
+            <div><p className="font-semibold text-white">Checkout Cepat &amp; Aman</p><p className="text-zinc-400 mt-0.5">Proses transaksi praktis dengan konfirmasi instan dan pelacakan pesanan langsung.</p></div>
           </div>
         </div>
       </section>
@@ -1321,7 +1321,7 @@ export default function App() {
                   <div className="flex justify-between text-sm font-bold text-white pt-1.5 border-t border-[#232329]"><span>Total Bayar</span><span className="font-display text-base text-[#D6C0A0]">{formatRupiah(total)}</span></div>
                 </div>
                 <button type="button" onClick={handleOpenQris} className="w-full py-3 rounded-xl bg-[#D6C0A0] hover:bg-[#E4D2B7] text-[#0B0B0D] font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition cursor-pointer">
-                  <QrCode className="w-4 h-4" /> Bayar via QRIS
+                  <ShoppingBag className="w-4 h-4" /> Lanjut ke Pembayaran
                 </button>
                 <button type="button" onClick={handleCheckoutWhatsApp} className="w-full py-2 rounded-lg bg-transparent hover:bg-[#1A1A20] border border-[#27272F] text-zinc-400 hover:text-zinc-200 font-medium text-[11px] flex items-center justify-center gap-1.5 transition cursor-pointer">
                   <Phone className="w-3.5 h-3.5" /> Tanya / Pesan via WhatsApp
