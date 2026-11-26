@@ -117,11 +117,11 @@ export function ProductDetailModal({ product, onClose, onAddToCart, onBuyNow, fo
                   Pilih Warna: <strong className="text-zinc-950">{selectedColor || colors[0]}</strong>
                 </span>
                 <div className="flex flex-wrap gap-2">
-                  {colors.map((c) => {
+                  {colors.map((c, idx) => {
                     const hex = getColorHex(c);
                     const active = (selectedColor || colors[0]) === c;
                     return (
-                      <button key={c} type="button" onClick={() => setSelectedColor(c)} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border transition cursor-pointer ${active ? 'border-zinc-950 bg-zinc-950 text-white' : 'border-zinc-200 bg-zinc-50 text-zinc-700 hover:border-zinc-400'}`}>
+                      <button key={c} type="button" onClick={() => { setSelectedColor(c); if (idx < images.length) setActiveImgIdx(idx); }} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border transition cursor-pointer ${active ? 'border-zinc-950 bg-zinc-950 text-white' : 'border-zinc-200 bg-zinc-50 text-zinc-700 hover:border-zinc-400'}`}>
                         {hex && <span className="w-3 h-3 rounded-full border border-black/20 shrink-0" style={{ backgroundColor: hex }} />}
                         {c}
                       </button>
