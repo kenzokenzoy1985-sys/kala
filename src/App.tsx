@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { ShoppingBag, Search, X, Plus, Minus, ArrowRight, Phone, ShieldCheck, Truck, Lock, Trash2, Upload, LogOut, Image as ImageIcon, Save, QrCode, Copy, Check, CheckCircle2, Package, Download, Pencil } from 'lucide-react';
+import { ShoppingBag, Search, X, Plus, Minus, Phone, Lock, Trash2, Upload, LogOut, Image as ImageIcon, Save, QrCode, Copy, Check, CheckCircle2, Package, Download, Pencil, SearchX, RotateCcw } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 import {
   ProductDetailModal, getColorHex,
@@ -41,10 +41,6 @@ const CATEGORY_OPTIONS = [
   { key: 'accessories', label: 'Aksesori' },
 ];
 
-const FILTER_CATEGORIES = [
-  { key: 'all', label: 'Semua Produk' },
-  ...CATEGORY_OPTIONS,
-];
 
 const FALLBACK_PRODUCTS: Product[] = [
   {
@@ -1167,257 +1163,456 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0B0B0D] text-[#F5F5F7] flex flex-col">
-      <div className="bg-[#141418] border-b border-[#232329] text-[11px] text-zinc-400 py-2 px-4 text-center">
-        Pengiriman seluruh Indonesia • Ready Stock • Gunakan kode <span className="text-[#D6C0A0] font-semibold tracking-wide">OFFICIALWS</span> untuk diskon 5%
+    <div className="min-h-screen bg-white text-zinc-950 antialiased selection:bg-zinc-950 selection:text-white flex flex-col relative">
+      {/* FIXED SOFT MESH + MARQUEE BACKGROUND (z-0, 200% Intensity) */}
+      <div aria-hidden="true" className="fixed inset-0 z-0 overflow-hidden pointer-events-none select-none bg-white">
+        <div className="absolute inset-0">
+          <div
+            className="absolute -top-24 -left-20 w-[46vw] h-[46vw] max-w-[620px] max-h-[620px] rounded-full blur-3xl"
+            style={{ background: 'radial-gradient(circle, rgba(246, 232, 213, 0.92) 0%, rgba(246, 232, 213, 0) 70%)' }}
+          />
+          <div
+            className="absolute top-[18%] -right-24 w-[44vw] h-[44vw] max-w-[580px] max-h-[580px] rounded-full blur-3xl"
+            style={{ background: 'radial-gradient(circle, rgba(235, 228, 240, 0.88) 0%, rgba(235, 228, 240, 0) 70%)' }}
+          />
+          <div
+            className="absolute -bottom-28 left-[28%] w-[52vw] h-[42vw] max-w-[680px] max-h-[520px] rounded-full blur-3xl"
+            style={{ background: 'radial-gradient(circle, rgba(243, 238, 229, 0.95) 0%, rgba(243, 238, 229, 0) 72%)' }}
+          />
+        </div>
+
+        <div className="absolute inset-0 flex flex-col justify-center gap-12 sm:gap-16 overflow-hidden">
+          {[0, 1, 2, 3].map((row) => (
+            <div key={row} className="w-full overflow-hidden">
+              <div className={row % 2 === 0 ? 'marquee-track-left' : 'marquee-track-right'}>
+                {[0, 1].map((dup) => (
+                  <div key={dup} className="flex items-center" aria-hidden={dup === 1}>
+                    {Array.from({ length: 8 }).map((_, i) => (
+                      <span
+                        key={i}
+                        className="font-display font-bold text-5xl sm:text-6xl md:text-7xl tracking-[0.16em] uppercase mx-8 whitespace-nowrap text-zinc-950/[0.085]"
+                      >
+                        WS.STORE
+                      </span>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
-      <header className="sticky top-0 z-30 bg-[#0B0B0D]/90 backdrop-blur-md border-b border-[#232329]">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
-          <a href="#katalog" onClick={() => { setSelectedCategory('all'); setSearchQuery(''); }} className="font-display text-lg sm:text-xl font-bold tracking-tight text-white shrink-0">
-            {STORE_NAME_FIRST}<span className="text-[#D6C0A0]">.</span>{STORE_NAME_SECOND}
-          </a>
-          <div className="relative flex-1 max-w-md">
-            <Search className="w-4 h-4 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-            <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Cari kaos, hoodie, celana..." className="w-full bg-[#141418] border border-[#232329] focus:border-[#D6C0A0] rounded-full pl-9 pr-8 py-1.5 text-xs sm:text-sm text-white placeholder-zinc-500 focus:outline-none transition" />
-            {searchQuery && <button type="button" onClick={() => setSearchQuery('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white"><X className="w-3.5 h-3.5" /></button>}
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <button type="button" onClick={() => setIsOrdersOpen(true)} className="relative shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-full bg-[#141418] hover:bg-[#1C1C22] border border-[#27272F] hover:border-[#D6C0A0]/60 text-xs sm:text-sm font-medium text-white transition">
-              <Package className="w-4 h-4 text-[#D6C0A0]" />
-              <span className="hidden sm:inline">Pesanan</span>
-              {myOrderCodes.length > 0 && <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-emerald-500 text-black text-[10px] font-bold flex items-center justify-center">{myOrderCodes.length}</span>}
-            </button>
-            <button type="button" onClick={() => setIsCartOpen(true)} className="relative shrink-0 inline-flex items-center gap-2 px-3.5 py-2 rounded-full bg-[#141418] hover:bg-[#1C1C22] border border-[#27272F] hover:border-[#D6C0A0]/60 text-xs sm:text-sm font-medium text-white transition">
-            <ShoppingBag className="w-4 h-4 text-[#D6C0A0]" />
-            <span className="hidden sm:inline">Keranjang</span>
-            {totalItems > 0 && <span className="min-w-[20px] h-5 px-1.5 rounded-full bg-[#D6C0A0] text-[#0B0B0D] text-[11px] font-bold flex items-center justify-center">{totalItems}</span>}
-          </button>
-          </div>
-        </div>
-      </header>
+      {/* FOREGROUND CONTENT (z-10) */}
+      <div className="relative z-10 min-h-screen flex flex-col">
+        {/* Sticky Frosted White Navbar */}
+        <header className="sticky top-0 z-30 border-b border-zinc-200 bg-white/80 backdrop-blur-md">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <a
+              href="#top"
+              onClick={() => { setSelectedCategory('all'); setSearchQuery(''); }}
+              className="flex items-center gap-2.5 group"
+            >
+              <span className="w-2 h-2 rounded-full bg-zinc-950 group-hover:scale-125 transition-transform" />
+              <span className="font-display font-bold text-lg sm:text-xl tracking-tight text-zinc-950">
+                {STORE_NAME_FIRST}.{STORE_NAME_SECOND}
+              </span>
+            </a>
 
-      <section className="border-b border-[#232329] bg-gradient-to-b from-[#131318] to-[#0B0B0D]">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-7 sm:py-9 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-[#D6C0A0]/10 border border-[#D6C0A0]/25 text-[#D6C0A0] text-[11px] font-medium mb-2.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#D6C0A0]" />
-              New Collection • Ready Stock
-            </div>
-            <h1 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-white">Daily Streetwear &amp; Essentials</h1>
-            <p className="text-xs sm:text-sm text-zinc-400 mt-1 max-w-xl">Koleksi harian dengan potongan bersih dan material pilihan. Temukan warna dan ukuran yang pas untuk gaya kamu.</p>
-          </div>
-          <a href="#katalog" className="self-start sm:self-center inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#D6C0A0] hover:bg-[#E4D2B7] text-[#0B0B0D] font-semibold text-xs sm:text-sm transition shrink-0">
-            Lihat Katalog <ArrowRight className="w-4 h-4" />
-          </a>
-        </div>
-      </section>
-
-      <main id="katalog" className="max-w-6xl w-full mx-auto px-4 sm:px-6 py-8 flex-1">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-6 border-b border-[#232329]">
-          <div className="flex items-center gap-2 overflow-x-auto pb-1">
-            {FILTER_CATEGORIES.map((cat) => (
-              <button key={cat.key} type="button" onClick={() => setSelectedCategory(cat.key)} className={`px-3.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition ${selectedCategory === cat.key ? 'bg-[#D6C0A0] text-[#0B0B0D] font-semibold' : 'bg-[#141418] text-zinc-400 hover:text-white border border-[#232329]'}`}>
-                {cat.label}
+            {/* Keranjang FIRST, Pesanan at FAR RIGHT EDGE */}
+            <div className="flex items-center gap-2 sm:gap-3">
+              <button
+                type="button"
+                onClick={() => setIsCartOpen(true)}
+                className="relative inline-flex items-center gap-2 px-3 sm:px-3.5 py-2 rounded-xl bg-zinc-50 hover:bg-zinc-100 border border-zinc-200 text-xs sm:text-sm font-medium text-zinc-900 transition-colors cursor-pointer"
+                aria-label="Keranjang Belanja"
+              >
+                <ShoppingBag className="w-4 h-4 text-zinc-800" />
+                <span className="hidden sm:inline">Keranjang</span>
+                {totalItems > 0 && (
+                  <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-zinc-950 text-white text-[11px] font-bold">
+                    {totalItems}
+                  </span>
+                )}
               </button>
-            ))}
-          </div>
-          <div className="flex items-center justify-between sm:justify-end gap-3 text-xs text-zinc-400">
-            <span>{filteredProducts.length} produk</span>
-            <select value={sortBy} onChange={(e) => setSortBy(e.target.value as any)} className="bg-[#141418] border border-[#232329] rounded-lg px-2.5 py-1.5 text-xs text-zinc-200 focus:outline-none focus:border-[#D6C0A0]">
-              <option value="default">Urutkan: Terbaru</option>
-              <option value="price-asc">Harga: Terendah</option>
-              <option value="price-desc">Harga: Tertinggi</option>
-            </select>
-          </div>
-        </div>
 
-        {isLoadingProducts ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 mt-6">
-            {[1, 2, 3, 4].map((n) => (
-              <div key={n} className="rounded-xl bg-[#141418] border border-[#232329] overflow-hidden animate-pulse">
-                <div className="aspect-[4/5] bg-[#1C1C22]" />
-                <div className="p-3.5 space-y-2"><div className="h-3 bg-[#1C1C22] rounded w-1/3" /><div className="h-4 bg-[#1C1C22] rounded w-3/4" /></div>
+              <button
+                type="button"
+                onClick={() => setIsOrdersOpen(true)}
+                className="relative inline-flex items-center gap-2 px-3 sm:px-3.5 py-2 rounded-xl bg-zinc-50 hover:bg-zinc-100 border border-zinc-200 text-xs sm:text-sm font-medium text-zinc-900 transition-colors cursor-pointer"
+                aria-label="Lacak Pesanan"
+              >
+                <Package className="w-4 h-4 text-zinc-800" />
+                <span>Pesanan</span>
+                {myOrderCodes.length > 0 && (
+                  <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-emerald-600 text-white text-[10px] font-bold">
+                    {myOrderCodes.length}
+                  </span>
+                )}
+              </button>
+            </div>
+          </div>
+        </header>
+
+        {/* Main Container */}
+        <main id="top" className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-10 sm:pt-14 pb-20">
+          {/* Minimal Hero Section */}
+          <section className="text-center max-w-4xl mx-auto pt-4 pb-8 sm:pt-6 sm:pb-10">
+            <h1 className="font-display font-bold text-zinc-950 leading-none uppercase tracking-[0.06em] text-4xl sm:text-5xl md:text-6xl select-none">
+              ESSENTIAL WEAR
+            </h1>
+          </section>
+
+          {/* Centered Minimalist Smart Search Bar */}
+          <section aria-label="Pencarian Produk" className="mb-9 sm:mb-11">
+            <div className="relative w-full max-w-lg mx-auto">
+              <Search className="w-4 h-4 text-zinc-400 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                type="text"
+                autoComplete="off"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Cari baju, celana, jaket, topi, atau warna..."
+                className="w-full pl-11 pr-11 py-3 rounded-2xl bg-white/95 backdrop-blur-md border border-zinc-200 focus:border-zinc-900 focus:outline-none text-xs sm:text-sm text-zinc-950 placeholder:text-zinc-400 shadow-[0_8px_30px_rgba(0,0,0,0.06)] transition-colors"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 transition-colors cursor-pointer"
+                  aria-label="Hapus pencarian"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          </section>
+
+          {/* Product Catalog Section */}
+          <section id="katalog" className="scroll-mt-24">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-6 border-b border-zinc-200 pb-4">
+              <h2 className="font-display font-bold text-xl sm:text-2xl text-zinc-950">
+                {searchQuery.trim() ? `Hasil untuk "${searchQuery.trim()}"` : 'Semua Produk'}
+              </h2>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-zinc-500 font-medium">{filteredProducts.length} Item</span>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as any)}
+                  className="bg-white/90 border border-zinc-200 rounded-xl px-3 py-1.5 text-xs text-zinc-800 focus:outline-none focus:border-zinc-900 cursor-pointer"
+                >
+                  <option value="default">Terbaru</option>
+                  <option value="price-asc">Harga: Terendah</option>
+                  <option value="price-desc">Harga: Tertinggi</option>
+                </select>
               </div>
-            ))}
-          </div>
-        ) : filteredProducts.length === 0 ? (
-          <div className="text-center py-16 rounded-2xl bg-[#141418] border border-[#232329] mt-6 px-4">
-            <p className="text-sm font-medium text-zinc-300">Produk tidak ditemukan</p>
-            <button type="button" onClick={() => { setSelectedCategory('all'); setSearchQuery(''); }} className="mt-4 px-4 py-2 rounded-lg bg-[#D6C0A0] text-[#0B0B0D] text-xs font-semibold">Reset Filter</button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 mt-6">
-            {[...filteredProducts].sort((a, b) => sortBy === 'price-asc' ? a.price - b.price : sortBy === 'price-desc' ? b.price - a.price : 0).map((product) => {
-              void setSelectedSizes;
-              const isSoldOut = SIZES.every((sz) => (product.stock?.[sz] ?? 0) <= 0);
-              const images = product.images?.length ? product.images : product.image ? [product.image] : [];
-              const origPrice = product.originalPrice ?? (product as any).original_price;
-              const colors = product.colors || [];
-              const activeColor = selectedColors[product.id] || colors[0] || '';
+            </div>
 
-              return (
-                <div key={product.id} onClick={() => setSelectedProductModal(product)} className="group rounded-xl bg-[#141418] border border-[#232329] hover:border-[#D6C0A0]/45 overflow-hidden flex flex-col justify-between transition cursor-pointer">
-                  <div>
-                    <div onClick={() => setSelectedProductModal(product)} className="relative aspect-[4/5] bg-[#1A1A20] overflow-hidden cursor-pointer">
-                      {images[0] ? (
-                        <img src={images[0]} alt={product.name} className={`w-full h-full object-cover transition duration-500 ${images[1] ? 'group-hover:opacity-0' : 'group-hover:scale-105'}`} />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-xs text-zinc-600">No Image</div>
-                      )}
-                      {images[1] && <img src={images[1]} alt={`${product.name} - 2`} className="absolute inset-0 w-full h-full object-cover opacity-0 group-hover:opacity-100 group-hover:scale-105 transition duration-500" />}
-                      <div className="absolute top-2.5 left-2.5 flex flex-col gap-1">
-                        {isSoldOut ? <span className="px-2 py-0.5 rounded bg-black/85 text-zinc-300 text-[10px] font-bold uppercase border border-white/10">Habis</span>
-                        : origPrice && origPrice > product.price ? <span className="px-2 py-0.5 rounded bg-[#D6C0A0] text-[#0B0B0D] text-[10px] font-bold uppercase">Sale</span> : null}
-                      </div>
-                      {images.length > 1 && <span className="absolute bottom-2 right-2 px-1.5 py-0.5 rounded bg-black/70 text-[10px] text-zinc-300">1/{images.length}</span>}
-                    </div>
-                    <div className="p-3 sm:p-3.5 pb-2">
-                      <p className="text-[10px] uppercase tracking-wider text-zinc-500">{product.category}</p>
-                      <h3 onClick={() => setSelectedProductModal(product)} className="text-xs sm:text-sm font-semibold text-white group-hover:text-[#D6C0A0] transition line-clamp-1 mt-0.5 cursor-pointer">{product.name}</h3>
-                      <div className="flex items-baseline gap-2 mt-1">
-                        <span className="font-display text-sm sm:text-base font-bold text-[#D6C0A0]">{formatRupiah(product.price)}</span>
-                        {origPrice && origPrice > product.price && <span className="text-[11px] text-zinc-500 line-through">{formatRupiah(origPrice)}</span>}
-                      </div>
+            {isLoadingProducts ? (
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-5">
+                {[1, 2, 3, 4].map((n) => (
+                  <div key={n} className="rounded-2xl bg-white/90 border border-zinc-200 overflow-hidden animate-pulse">
+                    <div className="aspect-[4/5] bg-zinc-100" />
+                    <div className="p-4 space-y-2">
+                      <div className="h-3 bg-zinc-100 rounded w-1/3" />
+                      <div className="h-4 bg-zinc-100 rounded w-3/4" />
                     </div>
                   </div>
-                  {colors.length > 0 && (
-                    <div className="px-3 sm:px-3.5 pb-3.5 pt-1 flex flex-wrap gap-1.5">
-                      {colors.map((c) => {
-                        const hex = getColorHex(c);
-                        return (
-                          <span
-                            key={c}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedColors((p) => ({ ...p, [product.id]: c }));
-                              setSelectedProductModal(product);
-                            }}
-                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border transition ${activeColor === c ? 'border-[#D6C0A0]/60 bg-[#D6C0A0]/10 text-[#D6C0A0]' : 'border-[#27272F] text-zinc-400 hover:text-white'}`}
-                          >
-                            {hex && <span className="w-2 h-2 rounded-full border border-white/25" style={{ backgroundColor: hex }} />}
-                            {c}
-                          </span>
-                        );
-                      })}
-                    </div>
-                  )}
+                ))}
+              </div>
+            ) : filteredProducts.length === 0 ? (
+              <div className="rounded-2xl bg-white/95 backdrop-blur-md border border-zinc-200 shadow-xs py-14 px-6 text-center">
+                <div className="w-11 h-11 rounded-2xl bg-zinc-100 border border-zinc-200 flex items-center justify-center mx-auto mb-3.5">
+                  <SearchX className="w-5 h-5 text-zinc-500" />
                 </div>
-              );
-            })}
-          </div>
-        )}
-      </main>
+                <p className="font-display font-semibold text-base text-zinc-950 mb-1.5">
+                  Produk tidak ditemukan.
+                </p>
+                <p className="text-xs text-zinc-500 mb-5">
+                  Coba kata kunci lain seperti baju, celana, jaket, topi, atau warna.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => { setSelectedCategory('all'); setSearchQuery(''); }}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-zinc-950 hover:bg-zinc-800 text-white text-xs font-semibold transition-colors cursor-pointer"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Reset Pencarian</span>
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-5">
+                {[...filteredProducts]
+                  .sort((a, b) => sortBy === 'price-asc' ? a.price - b.price : sortBy === 'price-desc' ? b.price - a.price : 0)
+                  .map((product) => {
+                    void setSelectedSizes;
+                    const isSoldOut = SIZES.every((sz) => (product.stock?.[sz] ?? 0) <= 0);
+                    const images = product.images?.length ? product.images : product.image ? [product.image] : [];
+                    const origPrice = product.originalPrice ?? (product as any).original_price;
+                    const colors = product.colors || [];
+                    const activeColor = selectedColors[product.id] || colors[0] || '';
 
-      <section className="border-t border-[#232329] bg-[#101014] py-8">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 grid grid-cols-1 sm:grid-cols-3 gap-5 text-xs">
-          <div className="flex items-start gap-3">
-            <div className="w-8 h-8 rounded-lg bg-[#D6C0A0]/10 border border-[#D6C0A0]/25 text-[#D6C0A0] flex items-center justify-center shrink-0"><Truck className="w-4 h-4" /></div>
-            <div><p className="font-semibold text-white">Pengiriman Cepat</p><p className="text-zinc-400 mt-0.5">Dikirim setiap hari kerja dengan packing aman ke seluruh Indonesia.</p></div>
-          </div>
-          <div className="flex items-start gap-3">
-            <div className="w-8 h-8 rounded-lg bg-[#D6C0A0]/10 border border-[#D6C0A0]/25 text-[#D6C0A0] flex items-center justify-center shrink-0"><ShieldCheck className="w-4 h-4" /></div>
-            <div><p className="font-semibold text-white">Material Nyaman</p><p className="text-zinc-400 mt-0.5">Bahan adem, lembut, dan enak dipakai untuk aktivitas sehari-hari.</p></div>
-          </div>
-          <div className="flex items-start gap-3">
-            <div className="w-8 h-8 rounded-lg bg-[#D6C0A0]/10 border border-[#D6C0A0]/25 text-[#D6C0A0] flex items-center justify-center shrink-0"><QrCode className="w-4 h-4" /></div>
-            <div><p className="font-semibold text-white">Checkout Cepat &amp; Aman</p><p className="text-zinc-400 mt-0.5">Proses transaksi praktis dengan konfirmasi instan dan pelacakan pesanan langsung.</p></div>
-          </div>
-        </div>
-      </section>
+                    return (
+                      <article
+                        key={product.id}
+                        onClick={() => setSelectedProductModal(product)}
+                        className="group rounded-2xl bg-white/90 backdrop-blur-sm border border-zinc-200 hover:border-zinc-400 shadow-[0_4px_20px_rgba(0,0,0,0.04)] hover:shadow-[0_10px_30px_rgba(0,0,0,0.08)] transition-all duration-300 overflow-hidden flex flex-col justify-between cursor-pointer"
+                      >
+                        <div>
+                          <div className="relative aspect-[4/5] bg-zinc-100 border-b border-zinc-200/80 overflow-hidden">
+                            {images[0] ? (
+                              <img
+                                src={images[0]}
+                                alt={product.name}
+                                className={`w-full h-full object-cover transition duration-500 ${images[1] ? 'group-hover:opacity-0' : 'group-hover:scale-105'}`}
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-xs text-zinc-400">No Image</div>
+                            )}
+                            {images[1] && (
+                              <img
+                                src={images[1]}
+                                alt={`${product.name} - 2`}
+                                className="absolute inset-0 w-full h-full object-cover opacity-0 group-hover:opacity-100 group-hover:scale-105 transition duration-500"
+                              />
+                            )}
+                            <span className="absolute top-2.5 left-2.5 sm:top-3 sm:left-3 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md bg-white/90 border border-zinc-200 text-[10px] font-display font-medium tracking-wide text-zinc-700 shadow-xs">
+                              {isSoldOut ? 'Habis' : product.category}
+                            </span>
+                            {!isSoldOut && origPrice && origPrice > product.price && (
+                              <span className="absolute top-2.5 right-2.5 sm:top-3 sm:right-3 px-2 py-0.5 rounded-md bg-zinc-950 text-white text-[10px] font-bold uppercase">
+                                Sale
+                              </span>
+                            )}
+                            {images.length > 1 && (
+                              <span className="absolute bottom-2 right-2 px-1.5 py-0.5 rounded bg-white/85 border border-zinc-200 text-[10px] text-zinc-700">
+                                1/{images.length}
+                              </span>
+                            )}
+                          </div>
 
-      <footer className="border-t border-[#232329] bg-[#0B0B0D] py-6 px-4 text-center text-xs text-zinc-500">
-        © 2026 {STORE_NAME_FIRST}.{STORE_NAME_SECOND}. All rights reserved.
-      </footer>
+                          <div className="p-3.5 sm:p-4 pb-2">
+                            <h3 className="font-semibold text-xs sm:text-[15px] text-zinc-900 leading-snug mb-1 group-hover:text-black transition-colors line-clamp-1">
+                              {product.name}
+                            </h3>
+                            <div className="flex items-baseline gap-2">
+                              <span className="font-display font-bold text-sm sm:text-base text-zinc-950">
+                                {formatRupiah(product.price)}
+                              </span>
+                              {origPrice && origPrice > product.price && (
+                                <span className="text-[11px] text-zinc-400 line-through">
+                                  {formatRupiah(origPrice)}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
 
+                        {colors.length > 0 && (
+                          <div className="px-3.5 sm:px-4 pb-3.5 pt-1 flex flex-wrap gap-1.5">
+                            {colors.map((c) => {
+                              const hex = getColorHex(c);
+                              return (
+                                <span
+                                  key={c}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedColors((p) => ({ ...p, [product.id]: c }));
+                                    setSelectedProductModal(product);
+                                  }}
+                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border transition ${activeColor === c ? 'border-zinc-950 bg-zinc-950 text-white' : 'border-zinc-200 bg-zinc-50 text-zinc-600 hover:border-zinc-400'}`}
+                                >
+                                  {hex && <span className="w-2 h-2 rounded-full border border-black/20" style={{ backgroundColor: hex }} />}
+                                  {c}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </article>
+                    );
+                  })}
+              </div>
+            )}
+          </section>
+
+          {/* Minimal Footer */}
+          <footer className="mt-16 pt-8 border-t border-zinc-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-zinc-500">
+            <span className="font-display tracking-wide">© 2026 {STORE_NAME_FIRST}.{STORE_NAME_SECOND} — Official Olshop</span>
+            <span>Gunakan kode <strong className="text-zinc-900">OFFICIALWS</strong> untuk diskon 5%</span>
+          </footer>
+        </main>
+      </div>
+
+      {/* TOAST NOTIFICATION */}
       {cartToast && (
-        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-4 py-2.5 rounded-full bg-[#1C1C22] border border-[#D6C0A0]/45 text-xs text-white shadow-2xl">
+        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-4 py-2.5 rounded-full bg-zinc-950 text-white text-xs shadow-xl">
           <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
           <span className="truncate max-w-[200px] sm:max-w-xs">{cartToast}</span>
-          <button type="button" onClick={() => { setCartToast(''); setIsCartOpen(true); }} className="text-[#D6C0A0] font-semibold hover:underline shrink-0 cursor-pointer">
+          <button
+            type="button"
+            onClick={() => { setCartToast(''); setIsCartOpen(true); }}
+            className="underline font-semibold hover:text-zinc-300 shrink-0 cursor-pointer"
+          >
             Lihat
           </button>
         </div>
       )}
 
-      <OrderTrackingModal isOpen={isOrdersOpen} onClose={() => setIsOrdersOpen(false)} supabase={supabase} formatRupiah={formatRupiah} savedOrderCodes={myOrderCodes} />
+      {/* MODALS */}
+      <OrderTrackingModal
+        isOpen={isOrdersOpen}
+        onClose={() => setIsOrdersOpen(false)}
+        supabase={supabase}
+        formatRupiah={formatRupiah}
+        savedOrderCodes={myOrderCodes}
+      />
 
-      <ProductDetailModal product={selectedProductModal} onClose={() => setSelectedProductModal(null)} onAddToCart={(product, size, color) => addToCart(product, size, color, false)} onBuyNow={(product, size, color) => buyNow(product, size, color)} formatRupiah={formatRupiah} />
+      <ProductDetailModal
+        product={selectedProductModal}
+        onClose={() => setSelectedProductModal(null)}
+        onAddToCart={(product, size, color) => addToCart(product, size, color, false)}
+        onBuyNow={(product, size, color) => buyNow(product, size, color)}
+        formatRupiah={formatRupiah}
+      />
 
+      {/* SLIDE-OVER CART DRAWER (Light Mode) */}
       {isCartOpen && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/75 backdrop-blur-sm" onClick={() => setIsCartOpen(false)}>
-          <div className="w-full max-w-md bg-[#111115] border-l border-[#232329] h-full flex flex-col justify-between p-5 sm:p-6 overflow-y-auto text-[#F5F5F7]" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/35 backdrop-blur-sm" onClick={() => setIsCartOpen(false)}>
+          <div
+            className="w-full max-w-md bg-white border-l border-zinc-200 h-full flex flex-col justify-between p-5 sm:p-6 overflow-y-auto text-zinc-950 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div>
-              <div className="flex items-center justify-between pb-4 border-b border-[#232329]">
-                <h2 className="font-display text-lg font-bold text-white">Keranjang ({totalItems})</h2>
-                <button type="button" onClick={() => setIsCartOpen(false)} className="w-8 h-8 rounded-full bg-[#1A1A20] text-zinc-400 hover:text-white flex items-center justify-center"><X className="w-4 h-4" /></button>
+              <div className="flex items-center justify-between pb-4 border-b border-zinc-200">
+                <h2 className="font-display text-lg font-bold text-zinc-950">Keranjang ({totalItems})</h2>
+                <button
+                  type="button"
+                  onClick={() => setIsCartOpen(false)}
+                  className="w-8 h-8 rounded-full bg-zinc-100 text-zinc-600 hover:text-zinc-950 flex items-center justify-center cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
+
               {cart.length === 0 ? (
                 <div className="py-16 text-center space-y-3">
-                  <ShoppingBag className="w-10 h-10 text-zinc-600 mx-auto" />
-                  <p className="text-sm text-zinc-400">Keranjang belanja masih kosong.</p>
-                  <button type="button" onClick={() => setIsCartOpen(false)} className="px-4 py-2 rounded-lg bg-[#D6C0A0] text-[#0B0B0D] text-xs font-semibold">Mulai Belanja</button>
+                  <ShoppingBag className="w-10 h-10 text-zinc-300 mx-auto" />
+                  <p className="text-sm text-zinc-500">Keranjang belanja masih kosong.</p>
+                  <button
+                    type="button"
+                    onClick={() => setIsCartOpen(false)}
+                    className="px-4 py-2 rounded-xl bg-zinc-950 text-white text-xs font-semibold cursor-pointer"
+                  >
+                    Mulai Belanja
+                  </button>
                 </div>
               ) : (
                 <div className="mt-3">
-                  <label className="flex items-center justify-between pb-2.5 mb-1 border-b border-[#232329] cursor-pointer select-none">
-                    <span className="inline-flex items-center gap-2 text-xs font-medium text-zinc-300">
-                      <input type="checkbox" checked={allCartSelected} onChange={toggleSelectAllCart} className="w-4 h-4 accent-[#D6C0A0] rounded cursor-pointer" />
+                  <label className="flex items-center justify-between pb-2.5 mb-1 border-b border-zinc-200 cursor-pointer select-none">
+                    <span className="inline-flex items-center gap-2 text-xs font-medium text-zinc-700">
+                      <input
+                        type="checkbox"
+                        checked={allCartSelected}
+                        onChange={toggleSelectAllCart}
+                        className="w-4 h-4 accent-zinc-950 rounded cursor-pointer"
+                      />
                       Pilih Semua ({selectedCart.length}/{cart.length})
                     </span>
-                    <span className="text-[11px] text-zinc-500">{selectedCount} pcs dipilih</span>
+                    <span className="text-[11px] text-zinc-400">{selectedCount} pcs dipilih</span>
                   </label>
-                  <div className="divide-y divide-[#232329]">
-                  {cart.map((item) => {
-                    const thumb = item.images?.length ? item.images[0] : item.image || '';
-                    const isChecked = item.selected !== false;
-                    return (
-                      <div key={`${item.id}-${item.size}-${item.color || ''}`} className={`py-3.5 flex items-start gap-3 transition ${isChecked ? '' : 'opacity-55'}`}>
-                        <input type="checkbox" checked={isChecked} onChange={() => toggleCartItem(item.id, item.size, item.color || '')} className="mt-1.5 w-4 h-4 accent-[#D6C0A0] rounded shrink-0 cursor-pointer" />
-                        <img src={thumb} alt={item.name} className="w-16 h-20 rounded-lg object-cover bg-[#1A1A20] border border-[#232329] shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between gap-2">
-                            <h4 className="text-xs sm:text-sm font-semibold text-white truncate">{item.name}</h4>
-                            <button type="button" onClick={() => updateQuantity(item.id, item.size, -item.quantity, item.color || '')} className="text-zinc-500 hover:text-red-400 transition"><Trash2 className="w-3.5 h-3.5" /></button>
-                          </div>
-                          <p className="text-[11px] text-zinc-400 mt-0.5">
-                            Size: <span className="text-zinc-200 font-medium">{item.size}</span>
-                            {item.color && <> • Warna: <span className="text-zinc-200 font-medium">{item.color}</span></>}
-                          </p>
-                          <p className="font-display text-xs sm:text-sm font-bold text-[#D6C0A0] mt-1">{formatRupiah(item.price)}</p>
-                          <div className="inline-flex items-center gap-2.5 mt-2 bg-[#18181E] border border-[#27272F] rounded-lg px-2 py-1">
-                            <button type="button" onClick={() => updateQuantity(item.id, item.size, -1, item.color || '')} className="text-zinc-400 hover:text-white"><Minus className="w-3 h-3" /></button>
-                            <span className="text-xs font-semibold w-4 text-center">{item.quantity}</span>
-                            <button type="button" onClick={() => updateQuantity(item.id, item.size, 1, item.color || '')} className="text-zinc-400 hover:text-white"><Plus className="w-3 h-3" /></button>
+                  <div className="divide-y divide-zinc-100">
+                    {cart.map((item) => {
+                      const thumb = item.images?.length ? item.images[0] : item.image || '';
+                      const isChecked = item.selected !== false;
+                      return (
+                        <div key={`${item.id}-${item.size}-${item.color || ''}`} className={`py-3.5 flex items-start gap-3 transition ${isChecked ? '' : 'opacity-50'}`}>
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => toggleCartItem(item.id, item.size, item.color || '')}
+                            className="mt-1.5 w-4 h-4 accent-zinc-950 rounded shrink-0 cursor-pointer"
+                          />
+                          <img src={thumb} alt={item.name} className="w-16 h-20 rounded-xl object-cover bg-zinc-100 border border-zinc-200 shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-2">
+                              <h4 className="text-xs sm:text-sm font-semibold text-zinc-950 truncate">{item.name}</h4>
+                              <button
+                                type="button"
+                                onClick={() => updateQuantity(item.id, item.size, -item.quantity, item.color || '')}
+                                className="text-zinc-400 hover:text-red-600 transition cursor-pointer"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                            <p className="text-[11px] text-zinc-500 mt-0.5">
+                              Size: <span className="text-zinc-800 font-medium">{item.size}</span>
+                              {item.color && <> • Warna: <span className="text-zinc-800 font-medium">{item.color}</span></>}
+                            </p>
+                            <p className="font-display text-xs sm:text-sm font-bold text-zinc-950 mt-1">{formatRupiah(item.price)}</p>
+                            <div className="inline-flex items-center gap-2.5 mt-2 bg-zinc-50 border border-zinc-200 rounded-lg px-2 py-1">
+                              <button type="button" onClick={() => updateQuantity(item.id, item.size, -1, item.color || '')} className="text-zinc-600 hover:text-zinc-950 cursor-pointer"><Minus className="w-3 h-3" /></button>
+                              <span className="text-xs font-semibold w-4 text-center">{item.quantity}</span>
+                              <button type="button" onClick={() => updateQuantity(item.id, item.size, 1, item.color || '')} className="text-zinc-600 hover:text-zinc-950 cursor-pointer"><Plus className="w-3 h-3" /></button>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
                   </div>
                 </div>
               )}
             </div>
 
             {cart.length > 0 && (
-              <div className="border-t border-[#232329] pt-4 mt-4 space-y-2.5">
+              <div className="border-t border-zinc-200 pt-4 mt-4 space-y-2.5">
                 <div className="flex gap-2">
-                  <input type="text" autoComplete="off" name="promo_code_entry" value={promoInput} onChange={(e) => { setPromoInput(e.target.value); if (promoApplied) setPromoApplied(false); }} placeholder="Kode promo" className="flex-1 bg-[#18181E] border border-[#2A2A33] focus:border-[#D6C0A0] rounded-lg px-3 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none" />
-                  <button type="button" onClick={() => { if (promoInput.trim().toUpperCase() === 'OFFICIALWS') { setPromoApplied(true); } else { setPromoApplied(false); if (promoInput.trim()) alert('Kode promo tidak valid!'); } }} className="px-4 py-2 rounded-lg bg-[#D6C0A0] hover:bg-[#E4D2B7] text-[#0B0B0D] text-xs font-semibold transition">Pakai</button>
+                  <input
+                    type="text"
+                    autoComplete="off"
+                    name="promo_code_entry"
+                    value={promoInput}
+                    onChange={(e) => { setPromoInput(e.target.value); if (promoApplied) setPromoApplied(false); }}
+                    placeholder="Kode promo (OFFICIALWS)"
+                    className="flex-1 bg-zinc-50 border border-zinc-200 focus:border-zinc-900 rounded-xl px-3 py-2 text-xs text-zinc-950 placeholder:text-zinc-400 focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (promoInput.trim().toUpperCase() === 'OFFICIALWS') {
+                        setPromoApplied(true);
+                      } else {
+                        setPromoApplied(false);
+                        if (promoInput.trim()) alert('Kode promo tidak valid!');
+                      }
+                    }}
+                    className="px-4 py-2 rounded-xl bg-zinc-950 hover:bg-zinc-800 text-white text-xs font-semibold transition cursor-pointer"
+                  >
+                    Pakai
+                  </button>
                 </div>
-                <input type="text" value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Nama penerima..." className="w-full bg-[#18181E] border border-[#2A2A33] focus:border-[#D6C0A0] rounded-lg px-3 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none" />
-                <input type="tel" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} placeholder="No. HP / WhatsApp penerima..." className="w-full bg-[#18181E] border border-[#2A2A33] focus:border-[#D6C0A0] rounded-lg px-3 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none" />
-                <input type="text" value={customerAddress} onChange={(e) => setCustomerAddress(e.target.value)} placeholder="Alamat lengkap pengiriman..." className="w-full bg-[#18181E] border border-[#2A2A33] focus:border-[#D6C0A0] rounded-lg px-3 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none" />
+                <input type="text" value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Nama penerima..." className="w-full bg-zinc-50 border border-zinc-200 focus:border-zinc-900 rounded-xl px-3 py-2 text-xs text-zinc-950 placeholder:text-zinc-400 focus:outline-none" />
+                <input type="tel" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} placeholder="No. HP / WhatsApp penerima..." className="w-full bg-zinc-50 border border-zinc-200 focus:border-zinc-900 rounded-xl px-3 py-2 text-xs text-zinc-950 placeholder:text-zinc-400 focus:outline-none" />
+                <input type="text" value={customerAddress} onChange={(e) => setCustomerAddress(e.target.value)} placeholder="Alamat lengkap pengiriman..." className="w-full bg-zinc-50 border border-zinc-200 focus:border-zinc-900 rounded-xl px-3 py-2 text-xs text-zinc-950 placeholder:text-zinc-400 focus:outline-none" />
                 <div className="space-y-1.5 pt-1 text-xs">
-                  <div className="flex justify-between text-zinc-400"><span>Subtotal</span><span>{formatRupiah(subtotal)}</span></div>
-                  <div className="flex justify-between text-zinc-400"><span>Ongkos Kirim</span><span className="text-zinc-300">Belum termasuk (bayar di tujuan / info WA)</span></div>
-                  {promoApplied && <div className="flex justify-between text-[#D6C0A0] font-medium"><span>Diskon OFFICIALWS (5%)</span><span>-{formatRupiah(discount)}</span></div>}
-                  <div className="flex justify-between text-sm font-bold text-white pt-1.5 border-t border-[#232329]"><span>Total Bayar</span><span className="font-display text-base text-[#D6C0A0]">{formatRupiah(total)}</span></div>
+                  <div className="flex justify-between text-zinc-500"><span>Subtotal</span><span className="text-zinc-900 font-medium">{formatRupiah(subtotal)}</span></div>
+                  <div className="flex justify-between text-zinc-500"><span>Ongkos Kirim</span><span className="text-zinc-700">Belum termasuk (bayar di tujuan / info WA)</span></div>
+                  {promoApplied && <div className="flex justify-between text-emerald-700 font-medium"><span>Diskon OFFICIALWS (5%)</span><span>-{formatRupiah(discount)}</span></div>}
+                  <div className="flex justify-between text-sm font-bold text-zinc-950 pt-1.5 border-t border-zinc-200"><span>Total Bayar</span><span className="font-display text-base">{formatRupiah(total)}</span></div>
                 </div>
-                <button type="button" disabled={selectedCart.length === 0} onClick={handleOpenQris} className="w-full py-3 rounded-xl bg-[#D6C0A0] hover:bg-[#E4D2B7] disabled:bg-zinc-800 disabled:text-zinc-500 text-[#0B0B0D] font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition cursor-pointer disabled:cursor-not-allowed">
+                <button
+                  type="button"
+                  disabled={selectedCart.length === 0}
+                  onClick={handleOpenQris}
+                  className="w-full py-3 rounded-xl bg-zinc-950 hover:bg-zinc-800 disabled:bg-zinc-200 disabled:text-zinc-400 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition cursor-pointer disabled:cursor-not-allowed shadow-md shadow-zinc-950/10"
+                >
                   <ShoppingBag className="w-4 h-4" /> {selectedCart.length === 0 ? 'Pilih Barang Dulu' : `Lanjut ke Pembayaran (${selectedCount})`}
                 </button>
-                <button type="button" onClick={handleCheckoutWhatsApp} className="w-full py-2 rounded-lg bg-transparent hover:bg-[#1A1A20] border border-[#27272F] text-zinc-400 hover:text-zinc-200 font-medium text-[11px] flex items-center justify-center gap-1.5 transition cursor-pointer">
+                <button
+                  type="button"
+                  onClick={handleCheckoutWhatsApp}
+                  className="w-full py-2 rounded-xl bg-white hover:bg-zinc-50 border border-zinc-200 text-zinc-600 hover:text-zinc-950 font-medium text-[11px] flex items-center justify-center gap-1.5 transition cursor-pointer"
+                >
                   <Phone className="w-3.5 h-3.5" /> Tanya / Pesan via WhatsApp
                 </button>
               </div>
@@ -1426,72 +1621,73 @@ export default function App() {
         </div>
       )}
 
+      {/* PAYMENT POPUP MODAL (Light Mode + QRIS + Bukti TF) */}
       {isQrisOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm p-4" onClick={() => !isConfirmingOrder && setIsQrisOpen(false)}>
-          <div className="w-full max-w-md max-h-[92vh] overflow-y-auto rounded-2xl bg-[#141418] border border-[#27272F] p-5 sm:p-6 text-[#F5F5F7] shadow-2xl space-y-4" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between border-b border-[#232329] pb-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 backdrop-blur-sm p-4" onClick={() => !isConfirmingOrder && setIsQrisOpen(false)}>
+          <div className="w-full max-w-md max-h-[92vh] overflow-y-auto rounded-2xl bg-white border border-zinc-200 p-5 sm:p-6 text-zinc-950 shadow-2xl space-y-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-zinc-200 pb-3">
               <div className="flex items-center gap-2">
-                <QrCode className="w-5 h-5 text-[#D6C0A0]" />
-                <h3 className="font-display text-base sm:text-lg font-bold text-white">Pembayaran QRIS</h3>
+                <QrCode className="w-5 h-5 text-zinc-950" />
+                <h3 className="font-display text-base sm:text-lg font-bold text-zinc-950">Selesaikan Pembayaran</h3>
               </div>
-              <button type="button" onClick={() => setIsQrisOpen(false)} className="w-8 h-8 rounded-full bg-[#1C1C22] text-zinc-400 hover:text-white flex items-center justify-center"><X className="w-4 h-4" /></button>
+              <button type="button" onClick={() => setIsQrisOpen(false)} className="w-8 h-8 rounded-full bg-zinc-100 text-zinc-600 hover:text-zinc-950 flex items-center justify-center cursor-pointer"><X className="w-4 h-4" /></button>
             </div>
 
             {orderSuccess ? (
               <div className="py-6 text-center space-y-3">
-                <CheckCircle2 className="w-14 h-14 text-emerald-400 mx-auto" />
-                <h4 className="font-display text-xl font-bold text-white">Pesanan Diterima!</h4>
-                <p className="text-xs text-zinc-400">Kode Order: <strong className="text-[#D6C0A0]">{orderSuccess.id}</strong></p>
-                <p className="text-xs text-zinc-400 leading-relaxed">
-                  Bukti transfer sebesar <strong className="text-white">{formatRupiah(orderSuccess.total)}</strong> sudah otomatis dikirim ke admin. Kami akan segera memproses pesanan kamu.
+                <CheckCircle2 className="w-14 h-14 text-emerald-600 mx-auto" />
+                <h4 className="font-display text-xl font-bold text-zinc-950">Pesanan Diterima!</h4>
+                <p className="text-xs text-zinc-500">Kode Order: <strong className="text-zinc-950 font-mono">{orderSuccess.id}</strong></p>
+                <p className="text-xs text-zinc-600 leading-relaxed">
+                  Bukti transfer sebesar <strong className="text-zinc-950">{formatRupiah(orderSuccess.total)}</strong> sudah otomatis diterima admin. Kami akan segera memproses pesanan kamu.
                 </p>
                 <div className="space-y-2 pt-2">
-                  <button type="button" onClick={() => { setIsQrisOpen(false); setIsOrdersOpen(true); }} className="w-full py-2.5 rounded-xl bg-[#D6C0A0] hover:bg-[#E4D2B7] text-[#0B0B0D] font-bold text-xs transition">
+                  <button type="button" onClick={() => { setIsQrisOpen(false); setIsOrdersOpen(true); }} className="w-full py-2.5 rounded-xl bg-zinc-950 hover:bg-zinc-800 text-white font-bold text-xs transition cursor-pointer">
                     Lihat Status &amp; Jadwal Pengiriman
                   </button>
-                  <button type="button" onClick={() => setIsQrisOpen(false)} className="w-full py-2.5 rounded-xl bg-[#1A1A20] border border-[#2A2A33] text-zinc-300 hover:text-white font-medium text-xs transition">
+                  <button type="button" onClick={() => setIsQrisOpen(false)} className="w-full py-2.5 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-700 font-medium text-xs transition cursor-pointer">
                     Kembali ke Toko
                   </button>
                 </div>
               </div>
             ) : (
               <>
-                <div className="rounded-xl bg-[#0E0E12] border border-[#232329] p-3.5 flex items-center justify-between">
+                <div className="rounded-xl bg-zinc-50 border border-zinc-200 p-3.5 flex items-center justify-between">
                   <div>
-                    <p className="text-[11px] text-zinc-400">Total yang harus dibayar</p>
-                    <p className="font-display text-xl font-bold text-[#D6C0A0]">{formatRupiah(total)}</p>
+                    <p className="text-[11px] text-zinc-500">Total yang harus dibayar</p>
+                    <p className="font-display text-xl font-bold text-zinc-950">{formatRupiah(total)}</p>
                   </div>
-                  <button type="button" onClick={() => { navigator.clipboard?.writeText(String(total)); setCopiedNominal(true); setTimeout(() => setCopiedNominal(false), 1800); }} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1A1A20] border border-[#2A2A33] hover:border-[#D6C0A0] text-[11px] font-medium text-zinc-200 transition">
-                    {copiedNominal ? <><Check className="w-3.5 h-3.5 text-emerald-400" /> Tersalin</> : <><Copy className="w-3.5 h-3.5" /> Salin Nominal</>}
+                  <button type="button" onClick={() => { navigator.clipboard?.writeText(String(total)); setCopiedNominal(true); setTimeout(() => setCopiedNominal(false), 1800); }} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-zinc-200 hover:border-zinc-400 text-[11px] font-medium text-zinc-800 transition cursor-pointer">
+                    {copiedNominal ? <><Check className="w-3.5 h-3.5 text-emerald-600" /> Tersalin</> : <><Copy className="w-3.5 h-3.5" /> Salin Nominal</>}
                   </button>
                 </div>
 
-                <div className="bg-white rounded-xl p-3 flex flex-col items-center">
-                  <img src="/qris.png" alt="QRIS WS.STORE" className="w-full max-w-[270px] rounded-lg object-contain" />
-                  <p className="text-[11px] text-zinc-600 mt-2 text-center">Scan QRIS di atas pakai aplikasi bank / e-wallet apa saja</p>
-                  <a href="/qris.png" download="QRIS-WS-STORE.png" className="mt-2.5 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-white text-[11px] font-semibold transition">
+                <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-3 flex flex-col items-center">
+                  <img src="/qris.png" alt="QRIS WS.STORE" className="w-full max-w-[260px] rounded-lg object-contain bg-white p-2 border border-zinc-100" />
+                  <p className="text-[11px] text-zinc-500 mt-2 text-center">Scan kode di atas pakai aplikasi bank atau e-wallet apa saja</p>
+                  <a href="/qris.png" download="QRIS-WS-STORE.png" className="mt-2.5 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-zinc-950 hover:bg-zinc-800 text-white text-[11px] font-semibold transition">
                     <Download className="w-3.5 h-3.5" /> Simpan Gambar QRIS
                   </a>
                 </div>
 
                 <div className="space-y-2">
-                  <label className="block text-xs font-medium text-zinc-300">Upload Bukti Transfer (Wajib)</label>
-                  <label className="flex flex-col items-center justify-center w-full border-2 border-dashed border-[#2A2A33] hover:border-[#D6C0A0]/70 rounded-xl p-4 cursor-pointer bg-[#0E0E12] transition">
+                  <label className="block text-xs font-medium text-zinc-700">Upload Bukti Transfer (Wajib)</label>
+                  <label className="flex flex-col items-center justify-center w-full border-2 border-dashed border-zinc-300 hover:border-zinc-900 rounded-xl p-4 cursor-pointer bg-zinc-50 transition">
                     {proofPreview ? (
                       <img src={proofPreview} alt="Bukti Transfer" className="max-h-44 rounded-lg object-contain" />
                     ) : (
                       <div className="text-center space-y-1">
-                        <Upload className="w-5 h-5 text-[#D6C0A0] mx-auto" />
-                        <p className="text-xs text-zinc-300 font-medium">Pilih foto / screenshot bukti bayar</p>
-                        <p className="text-[10px] text-zinc-500">JPG / PNG</p>
+                        <Upload className="w-5 h-5 text-zinc-700 mx-auto" />
+                        <p className="text-xs text-zinc-800 font-medium">Pilih foto / screenshot bukti bayar</p>
+                        <p className="text-[10px] text-zinc-400">JPG / PNG</p>
                       </div>
                     )}
                     <input type="file" accept="image/*" onChange={handleProofFileChange} className="hidden" />
                   </label>
                 </div>
 
-                <button type="button" disabled={isConfirmingOrder || !proofPreview} onClick={handleConfirmQrisOrder} className="w-full py-3 rounded-xl bg-[#D6C0A0] hover:bg-[#E4D2B7] disabled:bg-zinc-800 disabled:text-zinc-500 text-[#0B0B0D] font-bold text-xs sm:text-sm transition cursor-pointer disabled:cursor-not-allowed">
-                  {isConfirmingOrder ? 'Mengirim Pesanan...' : 'Konfirmasi Pembayaran QRIS'}
+                <button type="button" disabled={isConfirmingOrder || !proofPreview} onClick={handleConfirmQrisOrder} className="w-full py-3 rounded-xl bg-zinc-950 hover:bg-zinc-800 disabled:bg-zinc-200 disabled:text-zinc-400 text-white font-bold text-xs sm:text-sm transition cursor-pointer disabled:cursor-not-allowed">
+                  {isConfirmingOrder ? 'Mengirim Pesanan...' : 'Konfirmasi Pembayaran'}
                 </button>
               </>
             )}

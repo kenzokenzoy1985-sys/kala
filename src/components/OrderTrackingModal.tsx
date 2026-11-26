@@ -44,10 +44,10 @@ const STEPS = [
 ];
 
 const STATUS_META: Record<string, { label: string; color: string; step: number }> = {
-  pending: { label: 'Menunggu Konfirmasi', color: 'text-amber-400 bg-amber-400/10 border-amber-400/30', step: 0 },
-  packed: { label: 'Sedang Dikemas', color: 'text-sky-400 bg-sky-400/10 border-sky-400/30', step: 1 },
-  shipped: { label: 'Dalam Pengiriman', color: 'text-[#D6C0A0] bg-[#D6C0A0]/15 border-[#D6C0A0]/40', step: 2 },
-  completed: { label: 'Pesanan Selesai', color: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/30', step: 3 },
+  pending: { label: 'Menunggu Konfirmasi', color: 'text-amber-700 bg-amber-50 border-amber-200', step: 0 },
+  packed: { label: 'Sedang Dikemas', color: 'text-sky-700 bg-sky-50 border-sky-200', step: 1 },
+  shipped: { label: 'Dalam Pengiriman', color: 'text-zinc-950 bg-[#D6C0A0]/15 border-[#D6C0A0]/40', step: 2 },
+  completed: { label: 'Pesanan Selesai', color: 'text-emerald-700 bg-emerald-50 border-emerald-200', step: 3 },
   cancelled: { label: 'Dibatalkan', color: 'text-red-400 bg-red-400/10 border-red-400/30', step: -1 },
 };
 
@@ -112,27 +112,27 @@ export function OrderTrackingModal({ isOpen, onClose, supabase, formatRupiah, sa
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-3 sm:p-5" onClick={onClose}>
-      <div className="w-full max-w-2xl max-h-[90vh] flex flex-col rounded-2xl bg-[#111115] border border-[#27272F] text-[#F5F5F7] shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
-        <div className="px-5 py-4 border-b border-[#232329] flex items-center justify-between bg-[#141418]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 backdrop-blur-sm p-3 sm:p-5" onClick={onClose}>
+      <div className="w-full max-w-2xl max-h-[90vh] flex flex-col rounded-2xl bg-white border border-zinc-200 text-zinc-950 shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <div className="px-5 py-4 border-b border-zinc-200 flex items-center justify-between bg-zinc-50">
           <div className="flex items-center gap-2.5">
-            <Package className="w-5 h-5 text-[#D6C0A0]" />
+            <Package className="w-5 h-5 text-zinc-950" />
             <div>
-              <h2 className="font-display text-base sm:text-lg font-bold text-white">Pesanan Saya</h2>
-              <p className="text-[11px] text-zinc-400">Cek status, jadwal kirim, dan resi pesanan kamu</p>
+              <h2 className="font-display text-base sm:text-lg font-bold text-zinc-950">Pesanan Saya</h2>
+              <p className="text-[11px] text-zinc-500">Cek status, jadwal kirim, dan resi pesanan kamu</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button type="button" onClick={() => (query.trim() ? handleSearch({ preventDefault: () => {} } as any) : loadSavedOrders())} title="Refresh Status" className="w-8 h-8 rounded-full bg-[#1C1C22] text-zinc-400 hover:text-white flex items-center justify-center transition">
+            <button type="button" onClick={() => (query.trim() ? handleSearch({ preventDefault: () => {} } as any) : loadSavedOrders())} title="Refresh Status" className="w-8 h-8 rounded-full bg-white border border-zinc-200 text-zinc-600 hover:text-zinc-950 flex items-center justify-center transition">
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
             </button>
-            <button type="button" onClick={onClose} className="w-8 h-8 rounded-full bg-[#1C1C22] text-zinc-400 hover:text-white flex items-center justify-center transition">
+            <button type="button" onClick={onClose} className="w-8 h-8 rounded-full bg-white border border-zinc-200 text-zinc-600 hover:text-zinc-950 flex items-center justify-center transition">
               <X className="w-4 h-4" />
             </button>
           </div>
         </div>
 
-        <form onSubmit={handleSearch} className="px-5 py-3 bg-[#0E0E12] border-b border-[#232329] flex gap-2">
+        <form onSubmit={handleSearch} className="px-5 py-3 bg-white border-b border-zinc-200 flex gap-2">
           <div className="relative flex-1">
             <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
@@ -140,21 +140,21 @@ export function OrderTrackingModal({ isOpen, onClose, supabase, formatRupiah, sa
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Lacak pakai Kode Order (WS-...) atau No. HP..."
-              className="w-full bg-[#18181E] border border-[#2A2A33] focus:border-[#D6C0A0] rounded-lg pl-8 pr-3 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none"
+              className="w-full bg-zinc-50 border border-zinc-200 focus:border-zinc-900 rounded-xl pl-8 pr-3 py-2 text-xs text-zinc-950 placeholder-zinc-500 focus:outline-none"
             />
           </div>
-          <button type="submit" className="px-4 py-2 rounded-lg bg-[#D6C0A0] hover:bg-[#E4D2B7] text-[#0B0B0D] text-xs font-bold transition">
+          <button type="submit" className="px-4 py-2 rounded-lg bg-zinc-950 hover:bg-zinc-800 text-zinc-950 text-xs font-bold transition">
             Lacak
           </button>
         </form>
 
         <div className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1">
           {loading ? (
-            <div className="py-12 text-center text-xs text-zinc-400">Memuat data pesanan...</div>
+            <div className="py-12 text-center text-xs text-zinc-500">Memuat data pesanan...</div>
           ) : orders.length === 0 ? (
             <div className="py-12 text-center space-y-2">
               <Package className="w-10 h-10 text-zinc-600 mx-auto" />
-              <p className="text-sm font-medium text-zinc-300">
+              <p className="text-sm font-medium text-zinc-800">
                 {searched ? 'Pesanan tidak ditemukan' : 'Belum ada pesanan di perangkat ini'}
               </p>
               <p className="text-xs text-zinc-500 max-w-sm mx-auto">
@@ -172,10 +172,10 @@ export function OrderTrackingModal({ isOpen, onClose, supabase, formatRupiah, sa
               });
 
               return (
-                <div key={order.id} className="rounded-xl bg-[#16161B] border border-[#27272F] overflow-hidden">
-                  <div className="px-4 py-3 bg-[#1A1A21] border-b border-[#232329] flex flex-wrap items-center justify-between gap-2">
+                <div key={order.id} className="rounded-xl bg-white border border-zinc-200 shadow-xs overflow-hidden">
+                  <div className="px-4 py-3 bg-zinc-50 border-b border-zinc-200 flex flex-wrap items-center justify-between gap-2">
                     <div>
-                      <span className="font-display text-sm font-bold text-white">{code}</span>
+                      <span className="font-display text-sm font-bold text-zinc-950">{code}</span>
                       <span className="text-[11px] text-zinc-500 ml-2">{dateStr}</span>
                     </div>
                     <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${meta.color}`}>
@@ -196,10 +196,10 @@ export function OrderTrackingModal({ isOpen, onClose, supabase, formatRupiah, sa
                           const done = meta.step >= idx;
                           return (
                             <div key={st.key} className="flex flex-col items-center text-center gap-1.5">
-                              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold border transition ${done ? 'bg-[#D6C0A0] border-[#D6C0A0] text-[#0B0B0D]' : 'bg-[#101014] border-[#2A2A33] text-zinc-500'}`}>
+                              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold border transition ${done ? 'bg-emerald-600 border-emerald-600 text-white' : 'bg-zinc-50 border-zinc-200 text-zinc-500'}`}>
                                 {done ? <CheckCircle2 className="w-4 h-4" /> : idx + 1}
                               </div>
-                              <span className={`text-[10px] sm:text-[11px] font-medium ${done ? 'text-white' : 'text-zinc-500'}`}>
+                              <span className={`text-[10px] sm:text-[11px] font-medium ${done ? 'text-zinc-950' : 'text-zinc-500'}`}>
                                 {st.label}
                               </span>
                             </div>
@@ -209,26 +209,26 @@ export function OrderTrackingModal({ isOpen, onClose, supabase, formatRupiah, sa
                     )}
 
                     {/* Info Jadwal Kirim & Resi */}
-                    <div className="rounded-xl bg-[#0E0E12] border border-[#232329] p-3.5 space-y-2">
+                    <div className="rounded-xl bg-zinc-50 border border-zinc-200 p-3.5 space-y-2">
                       <div className="flex items-start gap-2.5">
-                        <Truck className="w-4 h-4 text-[#D6C0A0] shrink-0 mt-0.5" />
+                        <Truck className="w-4 h-4 text-zinc-950 shrink-0 mt-0.5" />
                         <div className="text-xs">
-                          <p className="text-zinc-400 text-[11px]">Jadwal &amp; Info Pengiriman</p>
-                          <p className="text-white font-medium mt-0.5">
+                          <p className="text-zinc-500 text-[11px]">Jadwal &amp; Info Pengiriman</p>
+                          <p className="text-zinc-950 font-medium mt-0.5">
                             {order.shipping_estimate || 'Estimasi dikirim dalam 1x24 jam setelah pembayaran dikonfirmasi'}
                           </p>
                         </div>
                       </div>
                       {(order.courier || order.tracking_number) && (
-                        <div className="pt-2 border-t border-[#232329] flex flex-wrap items-center justify-between gap-2 text-xs">
+                        <div className="pt-2 border-t border-zinc-200 flex flex-wrap items-center justify-between gap-2 text-xs">
                           <div>
                             <span className="text-zinc-500">Kurir: </span>
-                            <span className="text-zinc-200 font-semibold">{order.courier || '-'}</span>
+                            <span className="text-zinc-900 font-semibold">{order.courier || '-'}</span>
                             {order.tracking_number && (
                               <>
                                 <span className="text-zinc-600 mx-1.5">•</span>
                                 <span className="text-zinc-500">Resi: </span>
-                                <span className="text-[#D6C0A0] font-mono font-semibold">{order.tracking_number}</span>
+                                <span className="text-zinc-950 font-mono font-semibold">{order.tracking_number}</span>
                               </>
                             )}
                           </div>
@@ -240,7 +240,7 @@ export function OrderTrackingModal({ isOpen, onClose, supabase, formatRupiah, sa
                                 setCopiedId(order.id);
                                 setTimeout(() => setCopiedId(null), 1800);
                               }}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-[#1A1A20] border border-[#2A2A33] hover:border-[#D6C0A0] text-[11px] text-zinc-200 transition"
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-white border border-zinc-200 hover:border-zinc-400 text-[11px] text-zinc-800 transition"
                             >
                               {copiedId === order.id ? <><Check className="w-3 h-3 text-emerald-400" /> Tersalin</> : <><Copy className="w-3 h-3" /> Salin Resi</>}
                             </button>
@@ -251,31 +251,31 @@ export function OrderTrackingModal({ isOpen, onClose, supabase, formatRupiah, sa
 
                     {/* Daftar Barang */}
                     <div className="space-y-1.5">
-                      <p className="text-[11px] font-medium text-zinc-400">Barang yang dibeli:</p>
-                      <div className="divide-y divide-[#232329] rounded-lg bg-[#111115] border border-[#232329] px-3">
+                      <p className="text-[11px] font-medium text-zinc-500">Barang yang dibeli:</p>
+                      <div className="divide-y divide-[#232329] rounded-lg bg-zinc-50 border border-zinc-200 px-3">
                         {(order.items || []).map((item, i) => (
                           <div key={i} className="py-2 flex items-center justify-between gap-2 text-xs">
                             <div className="min-w-0">
-                              <p className="text-white font-medium truncate">{item.name}</p>
-                              <p className="text-[11px] text-zinc-400">
+                              <p className="text-zinc-950 font-medium truncate">{item.name}</p>
+                              <p className="text-[11px] text-zinc-500">
                                 Size {item.size}{item.color ? ` • ${item.color}` : ''} × {item.quantity}
                               </p>
                             </div>
-                            <span className="font-semibold text-zinc-200 shrink-0">{formatRupiah(item.price * item.quantity)}</span>
+                            <span className="font-semibold text-zinc-900 shrink-0">{formatRupiah(item.price * item.quantity)}</span>
                           </div>
                         ))}
                       </div>
                     </div>
 
-                    <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[#232329] text-xs">
-                      <div className="flex items-center gap-1.5 text-zinc-400 max-w-xs truncate">
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-zinc-200 text-xs">
+                      <div className="flex items-center gap-1.5 text-zinc-500 max-w-xs truncate">
                         <MapPin className="w-3.5 h-3.5 shrink-0 text-zinc-500" />
                         <span className="truncate">{order.customer_name} — {order.customer_address}</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <Clock className="w-3.5 h-3.5 text-zinc-500" />
-                        <span className="text-zinc-400">Total:</span>
-                        <span className="font-display text-sm font-bold text-[#D6C0A0]">{formatRupiah(order.total)}</span>
+                        <span className="text-zinc-500">Total:</span>
+                        <span className="font-display text-sm font-bold text-zinc-950">{formatRupiah(order.total)}</span>
                       </div>
                     </div>
                   </div>

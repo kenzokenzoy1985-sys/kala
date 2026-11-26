@@ -1,1 +1,29 @@
 
+
+@layer base {
+  body {
+    font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+  }
+  .font-display {
+    font-family: 'Space Grotesk', sans-serif;
+  }
+}
+
+@keyframes marqueeLeft {
+  0% { transform: translateX(0%); }
+  100% { transform: translateX(-50%); }
+}
+@keyframes marqueeRight {
+  0% { transform: translateX(-50%); }
+  100% { transform: translateX(0%); }
+}
+.marquee-track-left {
+  display: flex;
+  width: max-content;
+  animation: marqueeLeft 52s linear infinite;
+}
+.marquee-track-right {
+  display: flex;
+  width: max-content;
+  animation: marqueeRight 58s linear infinite;
+}
