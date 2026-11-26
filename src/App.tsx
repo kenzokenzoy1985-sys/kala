@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { ShoppingBag, Search, X, Plus, Minus, Phone, Lock, Trash2, Upload, LogOut, Image as ImageIcon, Save, QrCode, Copy, Check, CheckCircle2, Package, Download, Pencil, SearchX, RotateCcw } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 import {
-  ProductDetailModal, getColorHex,
+  ProductDetailModal,
   type Product,
   type SizeKey,
   SIZES,
@@ -1411,7 +1411,6 @@ export default function App() {
                         {colors.length > 0 && (
                           <div className="px-3.5 sm:px-4 pb-3.5 pt-1 flex flex-wrap gap-1.5">
                             {colors.map((c) => {
-                              const hex = getColorHex(c);
                               return (
                                 <span
                                   key={c}
@@ -1422,7 +1421,6 @@ export default function App() {
                                   }}
                                   className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border transition ${activeColor === c ? 'border-zinc-950 bg-zinc-950 text-white' : 'border-zinc-200 bg-zinc-50 text-zinc-600 hover:border-zinc-400'}`}
                                 >
-                                  {hex && <span className="w-2 h-2 rounded-full border border-black/20" style={{ backgroundColor: hex }} />}
                                   {c}
                                 </span>
                               );
