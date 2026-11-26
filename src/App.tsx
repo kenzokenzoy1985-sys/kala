@@ -1400,7 +1400,7 @@ export default function App() {
                                 {formatRupiah(product.price)}
                               </span>
                               {origPrice && origPrice > product.price && (
-                                <span className="text-[11px] text-zinc-400 line-through">
+                                <span className="text-xs text-zinc-600 font-medium line-through">
                                   {formatRupiah(origPrice)}
                                 </span>
                               )}

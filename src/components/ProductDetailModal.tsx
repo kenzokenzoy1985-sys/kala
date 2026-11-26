@@ -106,7 +106,7 @@ export function ProductDetailModal({ product, onClose, onAddToCart, onBuyNow, fo
               <h2 className="font-display text-xl sm:text-2xl font-bold text-zinc-950 mt-2 leading-snug">{product.name}</h2>
               <div className="flex items-baseline gap-2.5 mt-1.5">
                 <span className="font-display text-xl font-bold text-zinc-950">{formatRupiah(product.price)}</span>
-                {origPrice && origPrice > product.price && <span className="text-xs text-zinc-400 line-through">{formatRupiah(origPrice)}</span>}
+                {origPrice && origPrice > product.price && <span className="text-sm text-zinc-600 font-medium line-through">{formatRupiah(origPrice)}</span>}
               </div>
             </div>
             {product.description && <p className="text-xs sm:text-sm text-zinc-600 leading-relaxed border-t border-zinc-100 pt-3">{product.description}</p>}
